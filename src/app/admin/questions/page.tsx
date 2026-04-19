@@ -1,0 +1,514 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+
+interface QuestionRow {
+  _id: string;
+  text: { en: string; ml: string };
+  correctOption: string;
+  topicId: string;
+  difficulty: number;
+  isVerified: boolean;
+  examTags: string[];
+  createdAt: string;
+}
+
+interface Meta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const TOPICS = [
+  { id: "history", label: "📖 History" },
+  { id: "geography", label: "🌍 Geography" },
+  { id: "polity", label: "⚖️ Polity" },
+  { id: "science", label: "🔬 Science" },
+  { id: "current_affairs", label: "📰 Current Affairs" },
+  { id: "language", label: "✍️ Language" },
+  { id: "reasoning", label: "🧠 Reasoning" },
+  { id: "gk", label: "💡 GK" },
+];
+
+export default function QuestionsPage() {
+  const [questions, setQuestions] = useState<QuestionRow[]>([]);
+  const [meta, setMeta] = useState<Meta>({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [topicFilter, setTopicFilter] = useState("");
+  const [verifiedFilter, setVerifiedFilter] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const fetchQuestions = useCallback(async (page = 1) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), limit: "20" });
+    if (search) params.set("search", search);
+    if (topicFilter) params.set("topic", topicFilter);
+    if (verifiedFilter) params.set("verified", verifiedFilter);
+
+    const res = await fetch(`/api/admin/questions?${params}`);
+    const data = await res.json();
+    if (data.success) {
+      setQuestions(data.data);
+      setMeta(data.meta);
+    }
+    setLoading(false);
+  }, [search, topicFilter, verifiedFilter]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
+
+  const deleteQuestion = async (id: string) => {
+    if (!confirm("Delete this question permanently?")) return;
+    setDeleting(id);
+    await fetch(`/api/admin/questions/${id}`, { method: "DELETE" });
+    setDeleting(null);
+    fetchQuestions(meta.page);
+  };
+
+  const toggleVerified = async (id: string, current: boolean) => {
+    await fetch(`/api/admin/questions/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isVerified: !current }),
+    });
+    fetchQuestions(meta.page);
+  };
+
+  return (
+    <div className="animate-fade-in">
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <input
+          type="text"
+          placeholder="Search questions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 min-w-[200px] px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-surface-200/30 focus:border-primary-400/50 focus:outline-none transition-all"
+        />
+        <select
+          value={topicFilter}
+          onChange={(e) => setTopicFilter(e.target.value)}
+          className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+        >
+          <option value="">All Topics</option>
+          {TOPICS.map((t) => (
+            <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </select>
+        <select
+          value={verifiedFilter}
+          onChange={(e) => setVerifiedFilter(e.target.value)}
+          className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+        >
+          <option value="">All Status</option>
+          <option value="true">✅ Verified</option>
+          <option value="false">⚠️ Unverified</option>
+        </select>
+        <button
+          onClick={() => { setEditingId(null); setShowAddModal(true); }}
+          className="px-5 py-2.5 rounded-xl gradient-primary text-white text-sm font-semibold hover:opacity-90 transition-all"
+        >
+          + Add Question
+        </button>
+      </div>
+
+      {/* Stats bar */}
+      <div className="flex items-center gap-4 mb-4 text-xs text-surface-200/40">
+        <span>Total: <strong className="text-white">{meta.total}</strong></span>
+        <span>Page: <strong className="text-white">{meta.page}/{meta.totalPages}</strong></span>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : questions.length === 0 ? (
+        <div className="text-center py-12">
+          <span className="text-4xl block mb-4">📭</span>
+          <p className="text-surface-200/60">No questions found</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {questions.map((q) => (
+            <div key={q._id} className="glass-card-light p-4 flex items-start gap-4 group hover:border-primary-400/20 transition-all">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white font-medium leading-relaxed line-clamp-2">
+                  {q.text.en}
+                </p>
+                {q.text.ml && (
+                  <p className="text-xs text-surface-200/40 mt-1 line-clamp-1">{q.text.ml}</p>
+                )}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary-500/20 text-primary-300">
+                    {q.topicId}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/10 text-surface-200/60">
+                    Ans: {q.correctOption}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/10 text-surface-200/60">
+                    Diff: {"⭐".repeat(q.difficulty)}
+                  </span>
+                  {q.examTags?.map((tag) => (
+                    <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-surface-200/40 uppercase">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => toggleVerified(q._id, q.isVerified)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    q.isVerified
+                      ? "bg-success-500/20 text-success-500 hover:bg-success-500/30"
+                      : "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                  }`}
+                >
+                  {q.isVerified ? "✅ Verified" : "⚠️ Unverified"}
+                </button>
+                <button
+                  onClick={() => { setEditingId(q._id); setShowAddModal(true); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-surface-200/60 hover:bg-white/10 transition-all"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => deleteQuestion(q._id)}
+                  disabled={deleting === q._id}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-error-500/10 text-error-500/60 hover:bg-error-500/20 hover:text-error-500 transition-all disabled:opacity-40"
+                >
+                  {deleting === q._id ? "..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <button
+            onClick={() => fetchQuestions(meta.page - 1)}
+            disabled={meta.page <= 1}
+            className="px-4 py-2 rounded-lg text-sm bg-white/5 text-surface-200/60 hover:bg-white/10 disabled:opacity-30 transition-all"
+          >
+            ← Prev
+          </button>
+          <span className="text-sm text-surface-200/40 px-4">
+            {meta.page} / {meta.totalPages}
+          </span>
+          <button
+            onClick={() => fetchQuestions(meta.page + 1)}
+            disabled={meta.page >= meta.totalPages}
+            className="px-4 py-2 rounded-lg text-sm bg-white/5 text-surface-200/60 hover:bg-white/10 disabled:opacity-30 transition-all"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      {showAddModal && (
+        <QuestionModal
+          editId={editingId}
+          onClose={() => { setShowAddModal(false); setEditingId(null); }}
+          onSaved={() => { setShowAddModal(false); setEditingId(null); fetchQuestions(meta.page); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Question Add/Edit Modal ────────────────────────────────────────────────
+function QuestionModal({ editId, onClose, onSaved }: { editId: string | null; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    text: { en: "", ml: "" },
+    options: [
+      { key: "A", en: "", ml: "" },
+      { key: "B", en: "", ml: "" },
+      { key: "C", en: "", ml: "" },
+      { key: "D", en: "", ml: "" },
+    ],
+    correctOption: "A",
+    explanation: { en: "", ml: "" },
+    topicId: "history",
+    subTopic: "",
+    tags: "",
+    difficulty: 2,
+    examTags: ["ldc"] as string[],
+  });
+  const [saving, setSaving] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(!!editId);
+
+  useEffect(() => {
+    if (!editId) return;
+    fetch(`/api/admin/questions/${editId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          const q = d.data;
+          setForm({
+            text: q.text,
+            options: q.options,
+            correctOption: q.correctOption,
+            explanation: q.explanation || { en: "", ml: "" },
+            topicId: q.topicId,
+            subTopic: q.subTopic || "",
+            tags: (q.tags || []).join(", "),
+            difficulty: q.difficulty || 2,
+            examTags: q.examTags || [],
+          });
+        }
+      })
+      .finally(() => setLoadingEdit(false));
+  }, [editId]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const payload = {
+      ...form,
+      tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+    };
+
+    const url = editId ? `/api/admin/questions/${editId}` : "/api/admin/questions";
+    const method = editId ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    setSaving(false);
+
+    if (data.success) {
+      onSaved();
+    } else {
+      alert(data.error?.message || "Failed to save");
+    }
+  };
+
+  const updateOption = (idx: number, field: "en" | "ml", value: string) => {
+    setForm((f) => ({
+      ...f,
+      options: f.options.map((o, i) =>
+        i === idx ? { ...o, [field]: value } : o
+      ),
+    }));
+  };
+
+  const toggleExamTag = (tag: string) => {
+    setForm((f) => ({
+      ...f,
+      examTags: f.examTags.includes(tag)
+        ? f.examTags.filter((t) => t !== tag)
+        : [...f.examTags, tag],
+    }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto" style={{ background: "rgba(0,0,0,0.7)" }}>
+      <div className="glass-card w-full max-w-2xl p-6 animate-slide-up" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-white">
+            {editId ? "Edit Question" : "Add New Question"}
+          </h3>
+          <button onClick={onClose} className="text-surface-200/40 hover:text-white text-xl">✕</button>
+        </div>
+
+        {loadingEdit ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* Question Text */}
+            <div>
+              <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Question (English) *</label>
+              <textarea
+                value={form.text.en}
+                onChange={(e) => setForm((f) => ({ ...f, text: { ...f.text, en: e.target.value } }))}
+                rows={2}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm resize-none focus:border-primary-400/50 focus:outline-none"
+                placeholder="Enter question in English..."
+              />
+            </div>
+            <div>
+              <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Question (Malayalam)</label>
+              <textarea
+                value={form.text.ml}
+                onChange={(e) => setForm((f) => ({ ...f, text: { ...f.text, ml: e.target.value } }))}
+                rows={2}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm resize-none focus:border-primary-400/50 focus:outline-none"
+                placeholder="മലയാളത്തിൽ ചോദ്യം എഴുതുക..."
+              />
+            </div>
+
+            {/* Options */}
+            <div>
+              <label className="text-xs text-surface-200/60 font-semibold mb-2 block">Options *</label>
+              <div className="space-y-2">
+                {form.options.map((opt, i) => (
+                  <div key={opt.key} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, correctOption: opt.key }))}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${
+                        form.correctOption === opt.key
+                          ? "bg-success-500/30 text-success-500 border border-success-500/50"
+                          : "bg-white/5 text-surface-200/40 border border-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      {opt.key}
+                    </button>
+                    <input
+                      value={opt.en}
+                      onChange={(e) => updateOption(i, "en", e.target.value)}
+                      placeholder={`Option ${opt.key} (English)`}
+                      className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                    />
+                    <input
+                      value={opt.ml}
+                      onChange={(e) => updateOption(i, "ml", e.target.value)}
+                      placeholder="Malayalam"
+                      className="w-40 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-surface-200/30 mt-1">Click a letter to set correct answer. Current: <strong className="text-success-500">{form.correctOption}</strong></p>
+            </div>
+
+            {/* Explanation */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Explanation (EN)</label>
+                <textarea
+                  value={form.explanation.en}
+                  onChange={(e) => setForm((f) => ({ ...f, explanation: { ...f.explanation, en: e.target.value } }))}
+                  rows={2}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm resize-none focus:border-primary-400/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Explanation (ML)</label>
+                <textarea
+                  value={form.explanation.ml}
+                  onChange={(e) => setForm((f) => ({ ...f, explanation: { ...f.explanation, ml: e.target.value } }))}
+                  rows={2}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm resize-none focus:border-primary-400/50 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Metadata */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Topic *</label>
+                <select
+                  value={form.topicId}
+                  onChange={(e) => setForm((f) => ({ ...f, topicId: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                >
+                  {TOPICS.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Difficulty</label>
+                <select
+                  value={form.difficulty}
+                  onChange={(e) => setForm((f) => ({ ...f, difficulty: parseInt(e.target.value) }))}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                >
+                  {[1, 2, 3, 4, 5].map((d) => (
+                    <option key={d} value={d}>{"⭐".repeat(d)} ({d})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Sub-topic</label>
+                <input
+                  value={form.subTopic}
+                  onChange={(e) => setForm((f) => ({ ...f, subTopic: e.target.value }))}
+                  placeholder="e.g. kerala_history"
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Exam Tags */}
+            <div>
+              <label className="text-xs text-surface-200/60 font-semibold mb-2 block">Exam Tags</label>
+              <div className="flex gap-2">
+                {["ldc", "lgs", "degree", "police"].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleExamTag(tag)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${
+                      form.examTags.includes(tag)
+                        ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
+                        : "bg-white/5 text-surface-200/40 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Tags (comma-separated)</label>
+              <input
+                value={form.tags}
+                onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
+                placeholder="e.g. travancore, rulers, kerala"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-xl bg-white/5 text-surface-200/60 text-sm font-medium hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !form.text.en || form.options.some((o) => !o.en)}
+                className="px-6 py-2.5 rounded-xl gradient-primary text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-all"
+              >
+                {saving ? "Saving..." : editId ? "Update" : "Create"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const _TOPICS_DUP = [
+  { id: "history", label: "📖 History" },
+  { id: "geography", label: "🌍 Geography" },
+  { id: "polity", label: "⚖️ Polity" },
+  { id: "science", label: "🔬 Science" },
+  { id: "current_affairs", label: "📰 Current Affairs" },
+  { id: "language", label: "✍️ Language" },
+  { id: "reasoning", label: "🧠 Reasoning" },
+  { id: "gk", label: "💡 GK" },
+];

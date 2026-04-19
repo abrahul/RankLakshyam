@@ -1,6 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project.
 
 ## Getting Started
+
+### 1) Configure environment variables
+
+Create/update `.env.local` (do not keep the placeholder values):
+
+- `MONGODB_URI=...`
+- `NEXTAUTH_URL=http://localhost:3000`
+- `NEXTAUTH_SECRET=...` (long random string; `AUTH_SECRET` also works)
+- `AUTH_GOOGLE_ID=...` (ends with `.apps.googleusercontent.com`)
+- `AUTH_GOOGLE_SECRET=...`
+
+For Google OAuth, add this redirect URI to your Google Cloud Console OAuth Client:
+
+- `http://localhost:3000/api/auth/callback/google`
+
+When deploying, add your production URL and redirect URI too.
+
+### 2) Run the dev server
 
 First, run the development server:
 

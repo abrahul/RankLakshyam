@@ -1,0 +1,34 @@
+﻿scripts/seed-questions.ts(390,31): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '{ text: { en: string; ml: string; }; options: { key: string; en: string; ml: string; }[]; correctOption: string; explanation: { en: string; ml: string; }; topicId: string; subTopic: string; tags: string[]; difficulty: number; examTags: string[]; isVerified: boolean; }' is not assignable to parameter of type '{ _id?: ObjectIdQueryTypeCasting | undefined; text?: { en?: string | undefined; ml?: string | undefined; } | { [x: string]: unknown; en?: StringQueryTypeCasting | undefined; ml?: StringQueryTypeCasting | undefined; } | undefined; ... 73 more ...; validateSync?: { ...; } | undefined; }'.
+      Types of property 'difficulty' are incompatible.
+        Type 'number' is not assignable to type '1 | 2 | 3 | 4 | 5 | undefined'.
+src/lib/auth.ts(21,15): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+      Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+        Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+          Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+            Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+              Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+src/lib/auth.ts(22,15): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+      Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+        Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+          Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+            Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+              Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+src/lib/auth.ts(23,15): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+      Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+        Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+          Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+            Type 'string | null | undefined' is not assignable to type 'StringQueryTypeCasting | undefined'.
+              Type 'null' is not assignable to type 'StringQueryTypeCasting | undefined'.
+src/lib/db/connection.ts(19,5): error TS2322: Type 'Promise<typeof import("mongoose")>' is not assignable to type 'Promise<{ conn: ... | null; promise: Promise<...> | null; }>'.
+  Type 'typeof import("mongoose")' is missing the following properties from type '{ conn: ... | null; promise: Promise<...> | null; }': conn, promise
+src/lib/db/models/Topic.ts(3,18): error TS2430: Interface 'ITopic' incorrectly extends interface 'Document<ObjectId, any, any, Record<string, any>, {}>'.
+  Types of property '_id' are incompatible.
+    Type 'string' is not assignable to type 'ObjectId'.
