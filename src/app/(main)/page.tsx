@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
@@ -88,6 +88,14 @@ export default function DashboardPage() {
               </span>
             </Link>
           )}
+          <div className="glass-card-light px-3 py-1.5 flex items-center gap-1.5">
+            <span className="text-lg animate-streak-fire">🔥</span>
+            <span className="text-sm font-bold text-white">{dashData?.streak || 0}</span>
+          </div>
+          <div className="glass-card-light px-3 py-1.5 flex items-center gap-1.5">
+            <span className="text-sm">⚡</span>
+            <span className="text-sm font-bold text-accent-400">{dashData?.xp || 0}</span>
+          </div>
           {session?.user ? (
             <button
               type="button"
@@ -99,14 +107,6 @@ export default function DashboardPage() {
               <span className="hidden sm:inline">Sign out</span>
             </button>
           ) : null}
-          <div className="glass-card-light px-3 py-1.5 flex items-center gap-1.5">
-            <span className="text-lg animate-streak-fire">🔥</span>
-            <span className="text-sm font-bold text-white">{dashData?.streak || 0}</span>
-          </div>
-          <div className="glass-card-light px-3 py-1.5 flex items-center gap-1.5">
-            <span className="text-sm">⚡</span>
-            <span className="text-sm font-bold text-accent-400">{dashData?.xp || 0}</span>
-          </div>
         </div>
       </div>
 
