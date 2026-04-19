@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { connectDB } from "@/lib/db/connection";
 import User from "@/lib/db/models/User";
+import mongoose from "mongoose";
 
 const authSecret = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
 if (!authSecret || authSecret.includes("generate-a-random-secret-here")) {
@@ -44,8 +45,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       token.role = token.role ?? "user";
       token.onboarded = token.onboarded ?? false;
 
-      // Only hit the DB when we have an email and we haven't already attached a DB user id.
-      if (email && !token.userId) {
+      // If an earlier login happened while the DB was down, we may have a non-ObjectId
+      // fallback in `token.userId` (e.g. a UUID from `token.sub`). Retry syncing once DB is up.
+      const hasValidDbUserId =
+        typeof token.userId === "string" && mongoose.isValidObjectId(token.userId);
+
+      // Only hit the DB when we have an email and we don't have a valid Mongo ObjectId.
+      if (email && !hasValidDbUserId) {
         try {
           await connectDB();
           const dbUser =
@@ -65,7 +71,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.targetExam = dbUser.targetExam ?? token.targetExam;
         } catch (error) {
           console.error("Auth DB sync failed (continuing sign-in):", error);
-          token.userId = token.userId ?? String(token.sub ?? "");
+          // Don't poison the token with a non-ObjectId id; allow retry on next request.
+          if (typeof token.userId !== "string" || !mongoose.isValidObjectId(token.userId)) {
+            delete token.userId;
+          }
         }
       }
 

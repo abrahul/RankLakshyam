@@ -80,7 +80,6 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ "stats.totalXP": -1 });
 UserSchema.index({ role: 1, createdAt: -1 });
 

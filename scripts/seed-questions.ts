@@ -1,6 +1,79 @@
 import { connectDB } from "../src/lib/db/connection";
 import Topic from "../src/lib/db/models/Topic";
 import Question from "../src/lib/db/models/Question";
+import fs from "node:fs";
+import path from "node:path";
+
+type ExamTag = "ldc" | "lgs" | "degree" | "police";
+type OptionKey = "A" | "B" | "C" | "D";
+type Difficulty = 1 | 2 | 3 | 4 | 5;
+
+type SeedQuestion = {
+  text: { en: string; ml: string };
+  options: Array<{ key: string; en: string; ml: string }>;
+  correctOption: string;
+  explanation: { en: string; ml: string };
+  topicId: string;
+  subTopic: string;
+  tags: string[];
+  difficulty: number;
+  examTags: string[];
+  pyq?: { exam: string; year: number; questionNumber: number };
+  isVerified: boolean;
+};
+
+function clampDifficulty(value: number): Difficulty {
+  const rounded = Math.round(value);
+  if (rounded <= 1) return 1;
+  if (rounded === 2) return 2;
+  if (rounded === 3) return 3;
+  if (rounded === 4) return 4;
+  return 5;
+}
+
+function normalizeQuestion(q: SeedQuestion): Parameters<typeof Question.create>[0] {
+  return {
+    text: { en: q.text.en, ml: q.text.ml ?? "" },
+    options: q.options.map((o) => ({
+      key: o.key as OptionKey,
+      en: o.en,
+      ml: o.ml ?? "",
+    })),
+    correctOption: q.correctOption as OptionKey,
+    explanation: { en: q.explanation?.en ?? "", ml: q.explanation?.ml ?? "" },
+    topicId: q.topicId,
+    subTopic: q.subTopic ?? "",
+    tags: q.tags ?? [],
+    difficulty: clampDifficulty(q.difficulty),
+    examTags: q.examTags as ExamTag[],
+    pyq: q.pyq,
+    isVerified: Boolean(q.isVerified),
+  };
+}
+
+function loadEnvLocal() {
+  const envPath = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(envPath)) return;
+
+  const raw = fs.readFileSync(envPath, "utf8");
+  for (const rawLine of raw.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadEnvLocal();
 
 const TOPICS = [
   {
@@ -105,7 +178,7 @@ const TOPICS = [
   },
 ];
 
-const SAMPLE_QUESTIONS = [
+const SAMPLE_QUESTIONS: SeedQuestion[] = [
   // History Questions
   {
     text: { en: "Who was the founder of modern Travancore kingdom?", ml: "ആധുനിക തിരുവിതാംകൂർ രാജ്യത്തിന്റെ സ്ഥാപകൻ ആര്?" },
@@ -377,7 +450,7 @@ async function seed() {
     // Seed topics
     console.log("📚 Seeding topics...");
     for (const topic of TOPICS) {
-      await Topic.findOneAndUpdate({ _id: topic._id }, topic, { upsert: true });
+      await Topic.findOneAndUpdate({ _id: topic._id }, topic as never, { upsert: true });
     }
     console.log(`  ✅ ${TOPICS.length} topics seeded`);
 
@@ -387,7 +460,7 @@ async function seed() {
     for (const q of SAMPLE_QUESTIONS) {
       const exists = await Question.findOne({ "text.en": q.text.en });
       if (!exists) {
-        await Question.create(q);
+        await Question.create(normalizeQuestion(q));
         created++;
       }
     }

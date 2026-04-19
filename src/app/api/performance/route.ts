@@ -12,6 +12,12 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated", statusCode: 401 } }, { status: 401 });
     }
+    if (!mongoose.isValidObjectId(session.user.id)) {
+      return NextResponse.json(
+        { success: false, error: { code: "USER_NOT_LINKED", message: "Please sign out and sign in again.", statusCode: 401 } },
+        { status: 401 }
+      );
+    }
 
     await connectDB();
 

@@ -38,7 +38,6 @@ const StreakSchema = new Schema<IStreak>(
   { timestamps: true }
 );
 
-StreakSchema.index({ userId: 1 }, { unique: true });
 StreakSchema.index({ currentStreak: -1 });
 StreakSchema.index({ lastCompletedDate: 1 });
 

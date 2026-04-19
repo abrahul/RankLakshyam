@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import User from "@/lib/db/models/User";
-import { BADGES, getBadgeDef, getRankProgress, checkNewBadges } from "@/lib/utils/gamification";
+import { BADGES, getRankProgress } from "@/lib/utils/gamification";
+import mongoose from "mongoose";
 
 // GET — fetch user's badges and rank progress
 export async function GET() {
@@ -11,6 +12,12 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated", statusCode: 401 } },
+        { status: 401 }
+      );
+    }
+    if (!mongoose.isValidObjectId(session.user.id)) {
+      return NextResponse.json(
+        { success: false, error: { code: "USER_NOT_LINKED", message: "Please sign out and sign in again.", statusCode: 401 } },
         { status: 401 }
       );
     }
