@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Rank } from "@/lib/utils/gamification";
@@ -88,6 +88,17 @@ export default function DashboardPage() {
               </span>
             </Link>
           )}
+          {session?.user ? (
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="glass-card-light px-3 py-1.5 flex items-center gap-1.5 text-xs font-semibold text-surface-200/70 hover:text-surface-200 transition-all"
+              aria-label="Sign out"
+            >
+              <span className="text-sm">⎋</span>
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          ) : null}
           <div className="glass-card-light px-3 py-1.5 flex items-center gap-1.5">
             <span className="text-lg animate-streak-fire">🔥</span>
             <span className="text-sm font-bold text-white">{dashData?.streak || 0}</span>

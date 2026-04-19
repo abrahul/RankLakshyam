@@ -54,15 +54,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (email && !hasValidDbUserId) {
         try {
           await connectDB();
-          const dbUser =
-            (await User.findOne({ email }).lean()) ??
-            (await User.create({
-              name: String(name ?? "User"),
-              email,
-              image: String(image ?? ""),
-              role: "user",
-              onboarded: false,
-            }));
+          let dbUser = await User.findOne({ email }).lean();
+
+          // Create if missing. Handle race condition where another request creates it first.
+          if (!dbUser) {
+            try {
+              const created = await User.create({
+                name: String(name ?? "User"),
+                email,
+                image: String(image ?? ""),
+                role: "user",
+                onboarded: false,
+              });
+              dbUser = created.toObject();
+            } catch (err) {
+              const error = err as { code?: number };
+              if (error?.code === 11000) {
+                dbUser = await User.findOne({ email }).lean();
+              } else {
+                throw err;
+              }
+            }
+          }
+
+          if (!dbUser) throw new Error("User lookup failed after upsert.");
 
           token.userId = String(dbUser._id);
           token.role = dbUser.role ?? token.role;

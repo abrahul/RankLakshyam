@@ -33,8 +33,6 @@ const DailyChallengeSchema = new Schema<IDailyChallenge>({
   createdAt: { type: Date, default: Date.now },
 });
 
-DailyChallengeSchema.index({ date: 1 }, { unique: true });
-
 const DailyChallenge: Model<IDailyChallenge> =
   mongoose.models.DailyChallenge ||
   mongoose.model<IDailyChallenge>("DailyChallenge", DailyChallengeSchema);
