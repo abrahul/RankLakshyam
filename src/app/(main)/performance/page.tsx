@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface PerformanceData {
   overall: {
@@ -74,6 +75,22 @@ export default function PerformancePage() {
       <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-display)] mb-6">
         Performance
       </h1>
+
+      {/* History / Review shortcuts */}
+      <div className="grid grid-cols-3 gap-2 mb-6">
+        <Link href="/history" className="glass-card-light p-3 text-center topic-card">
+          <span className="text-lg block mb-1">🕘</span>
+          <p className="text-[11px] font-semibold text-white">History</p>
+        </Link>
+        <Link href="/review" className="glass-card-light p-3 text-center topic-card">
+          <span className="text-lg block mb-1">🧾</span>
+          <p className="text-[11px] font-semibold text-white">Review</p>
+        </Link>
+        <Link href="/weak-areas" className="glass-card-light p-3 text-center topic-card">
+          <span className="text-lg block mb-1">📉</span>
+          <p className="text-[11px] font-semibold text-white">Weak</p>
+        </Link>
+      </div>
 
       {/* Overall Stats */}
       <div className="grid grid-cols-3 gap-2 mb-6">

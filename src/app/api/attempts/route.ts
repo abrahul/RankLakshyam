@@ -7,6 +7,10 @@ import TestSession from "@/lib/db/models/TestSession";
 import Bookmark from "@/lib/db/models/Bookmark";
 import User from "@/lib/db/models/User";
 import Streak from "@/lib/db/models/Streak";
+import QuestionProgress from "@/lib/db/models/QuestionProgress";
+import TopicPerformance from "@/lib/db/models/TopicPerformance";
+import StylePerformance from "@/lib/db/models/StylePerformance";
+import TestAttempt from "@/lib/db/models/TestAttempt";
 import { calculateXP, getTodayIST, round } from "@/lib/utils/scoring";
 import { checkNewBadges, getStreakMilestone, getRank, getNextRank, getBadgeDef } from "@/lib/utils/gamification";
 
@@ -55,7 +59,7 @@ export async function POST(request: Request) {
     }
 
     // Get correct answer
-    const question = await Question.findById(questionId, { correctOption: 1, explanation: 1, topicId: 1, difficulty: 1 });
+    const question = await Question.findById(questionId, { correctOption: 1, explanation: 1, topicId: 1, difficulty: 1, questionStyle: 1 });
     if (!question) {
       return NextResponse.json(
         { success: false, error: { code: "QUESTION_NOT_FOUND", message: "Question not found", statusCode: 404 } },
@@ -110,8 +114,76 @@ export async function POST(request: Request) {
       ).then(() => {});
     }
 
+    // Update per-user performance collections (best-effort, does not affect scoring)
+    const now = new Date();
+    const questionStyle =
+      (question as unknown as { questionStyle?: "direct" | "concept" | "statement" | "negative" | "indirect" })
+        .questionStyle || "direct";
+
+    const questionProgressPromise = (async () => {
+      const doc = await QuestionProgress.findOneAndUpdate(
+        { userId: session.user.id, questionId },
+        {
+          $setOnInsert: { isMastered: false },
+          $inc: {
+            attempts: 1,
+            correctAttempts: isCorrect ? 1 : 0,
+            wrongAttempts: isCorrect ? 0 : 1,
+          },
+          $set: { lastAttemptedAt: now },
+        },
+        { upsert: true, returnDocument: "after" }
+      ).lean();
+
+      const attempts = doc?.attempts ?? 0;
+      const correctAttempts = doc?.correctAttempts ?? 0;
+      const isMastered = attempts >= 5 && correctAttempts / Math.max(1, attempts) >= 0.8;
+      await QuestionProgress.updateOne({ userId: session.user.id, questionId }, { $set: { isMastered } });
+    })();
+
+    const topicPerfPromise = (async () => {
+      const doc = await TopicPerformance.findOneAndUpdate(
+        { userId: session.user.id, topicId: question.topicId },
+        {
+          $setOnInsert: { accuracy: 0 },
+          $inc: { attempts: 1, correct: isCorrect ? 1 : 0, wrong: isCorrect ? 0 : 1 },
+          $set: { lastAttemptedAt: now },
+        },
+        { upsert: true, returnDocument: "after" }
+      ).lean();
+
+      const attempts = doc?.attempts ?? 0;
+      const correct = doc?.correct ?? 0;
+      const accuracy = attempts ? round((correct / attempts) * 100) : 0;
+      await TopicPerformance.updateOne({ userId: session.user.id, topicId: question.topicId }, { $set: { accuracy } });
+    })();
+
+    const stylePerfPromise = (async () => {
+      const doc = await StylePerformance.findOneAndUpdate(
+        { userId: session.user.id, questionStyle },
+        {
+          $setOnInsert: { accuracy: 0 },
+          $inc: { attempts: 1, correct: isCorrect ? 1 : 0, wrong: isCorrect ? 0 : 1 },
+          $set: { lastAttemptedAt: now },
+        },
+        { upsert: true, returnDocument: "after" }
+      ).lean();
+
+      const attempts = doc?.attempts ?? 0;
+      const correct = doc?.correct ?? 0;
+      const accuracy = attempts ? round((correct / attempts) * 100) : 0;
+      await StylePerformance.updateOne({ userId: session.user.id, questionStyle }, { $set: { accuracy } });
+    })();
+
     // Execute writes in parallel
-    await Promise.all([attemptPromise, sessionUpdatePromise, bookmarkPromise]);
+    await Promise.all([
+      attemptPromise,
+      sessionUpdatePromise,
+      bookmarkPromise,
+      questionProgressPromise,
+      topicPerfPromise,
+      stylePerfPromise,
+    ]);
 
     // If session completed, update XP and streak
     let xpResult = null;
@@ -237,6 +309,85 @@ export async function POST(request: Request) {
             ? { from: oldRank, to: newRank, nextRank: getNextRank(newXP) }
             : null,
         };
+      }
+
+      // Snapshot attempt for history/review (best-effort)
+      try {
+        const fullSession = await TestSession.findById(
+          sessionId,
+          { questionIds: 1, totalQuestions: 1, startedAt: 1, completedAt: 1, totalTimeSec: 1 }
+        ).lean();
+
+        if (fullSession) {
+          const attempts = await Attempt.find({ sessionId, userId: session.user.id }).lean();
+          const attemptByQuestionId = new Map<string, (typeof attempts)[number]>(
+            attempts.map((a) => [String(a.questionId), a])
+          );
+
+          const missingIds = fullSession.questionIds.filter(
+            (qid) => !attemptByQuestionId.has(String(qid))
+          );
+          const missingCorrect = missingIds.length
+            ? await Question.find({ _id: { $in: missingIds } }, { correctOption: 1 }).lean()
+            : [];
+          const correctById = new Map<string, string>(
+            missingCorrect.map((q) => [String(q._id), String((q as { correctOption?: string }).correctOption)])
+          );
+
+          const questions = fullSession.questionIds.map((qid) => {
+            const attempt = attemptByQuestionId.get(String(qid));
+            if (attempt) {
+              return {
+                questionId: attempt.questionId,
+                selectedOption: attempt.selectedOption,
+                correctOption: attempt.correctOption,
+                isCorrect: !!attempt.isCorrect,
+                timeTakenSec: attempt.timeTakenSec ?? 0,
+              };
+            }
+
+            const correctOption = correctById.get(String(qid)) || "A";
+            return {
+              questionId: qid,
+              selectedOption: null,
+              correctOption: correctOption as "A" | "B" | "C" | "D",
+              isCorrect: false,
+              timeTakenSec: 0,
+            };
+          });
+
+          const correctCount = questions.filter((q) => q.isCorrect).length;
+          const attemptedCount = questions.filter((q) => q.selectedOption).length;
+          const unattemptedCount = fullSession.totalQuestions - attemptedCount;
+          const wrongCount = attemptedCount - correctCount;
+          const accuracy = fullSession.totalQuestions
+            ? round((correctCount / fullSession.totalQuestions) * 100)
+            : 0;
+
+          await TestAttempt.updateOne(
+            { testSessionId: sessionId },
+            {
+              $setOnInsert: {
+                userId: session.user.id,
+                testSessionId: sessionId,
+                testId: String(sessionId),
+                questions,
+                totalQuestions: fullSession.totalQuestions,
+                correctCount,
+                wrongCount,
+                unattemptedCount,
+                score: correctCount,
+                accuracy,
+                startedAt: fullSession.startedAt,
+                completedAt: fullSession.completedAt ?? new Date(),
+                durationSec: fullSession.totalTimeSec ?? 0,
+              },
+            },
+            { upsert: true }
+          );
+        }
+      } catch (e) {
+        console.error("TestAttempt snapshot error:", e);
       }
     }
 
