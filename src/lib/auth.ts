@@ -44,14 +44,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Safe defaults so the session remains usable even when DB is down.
       token.role = token.role ?? "user";
       token.onboarded = token.onboarded ?? false;
+      token.dbSyncedAt = token.dbSyncedAt ?? 0;
 
       // If an earlier login happened while the DB was down, we may have a non-ObjectId
       // fallback in `token.userId` (e.g. a UUID from `token.sub`). Retry syncing once DB is up.
       const hasValidDbUserId =
         typeof token.userId === "string" && mongoose.isValidObjectId(token.userId);
 
-      // Only hit the DB when we have an email and we don't have a valid Mongo ObjectId.
-      if (email && !hasValidDbUserId) {
+      const shouldRefreshFromDb =
+        Date.now() - (typeof token.dbSyncedAt === "number" ? token.dbSyncedAt : 0) >
+        5 * 60 * 1000;
+
+      // Sync user from DB periodically so role/onboarding changes take effect for existing sessions.
+      if (email && (!hasValidDbUserId || shouldRefreshFromDb)) {
         try {
           await connectDB();
           let dbUser = await User.findOne({ email }).lean();
@@ -84,12 +89,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.onboarded =
             typeof dbUser.onboarded === "boolean" ? dbUser.onboarded : token.onboarded;
           token.targetExam = dbUser.targetExam ?? token.targetExam;
+          token.dbSyncedAt = Date.now();
         } catch (error) {
           console.error("Auth DB sync failed (continuing sign-in):", error);
           // Don't poison the token with a non-ObjectId id; allow retry on next request.
           if (typeof token.userId !== "string" || !mongoose.isValidObjectId(token.userId)) {
             delete token.userId;
           }
+          token.dbSyncedAt = Date.now();
         }
       }
 

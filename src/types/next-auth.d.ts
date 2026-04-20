@@ -17,5 +17,6 @@ declare module "next-auth/jwt" {
     role?: string;
     onboarded?: boolean;
     targetExam?: string;
+    dbSyncedAt?: number;
   }
 }
