@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { SessionProvider } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -104,6 +104,15 @@ function AdminContent({ children }: { children: React.ReactNode }) {
             {navItems.find(n => (n.href === "/admin" ? pathname === "/admin" : pathname.startsWith(n.href)))?.label || "Admin"}
           </h2>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 text-surface-200/60 hover:bg-white/10 hover:text-surface-200 transition-all"
+              aria-label="Log out"
+            >
+              <span className="hidden sm:inline">Logout</span>
+              <span className="sm:hidden">⎋</span>
+            </button>
             <span className="text-xs text-surface-200/40">{session?.user?.email}</span>
             <div className="w-7 h-7 rounded-full gradient-primary flex items-center justify-center text-white text-xs font-bold">
               {session?.user?.name?.[0] || "A"}
