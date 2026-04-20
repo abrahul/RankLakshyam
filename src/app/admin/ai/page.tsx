@@ -121,7 +121,8 @@ export default function AdminAiGeneratePage() {
             <select
               value={sourceType}
               onChange={(e) => setSourceType(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+              style={{ colorScheme: "dark" }}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
               <option value="general">General</option>
               <option value="textbook">Textbook</option>
@@ -136,7 +137,8 @@ export default function AdminAiGeneratePage() {
             <select
               value={topicHint}
               onChange={(e) => setTopicHint(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+              style={{ colorScheme: "dark" }}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
               <option value="auto">Auto</option>
               {TOPICS.map((t) => (
@@ -152,7 +154,8 @@ export default function AdminAiGeneratePage() {
             <select
               value={difficultyHint}
               onChange={(e) => setDifficultyHint(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+              style={{ colorScheme: "dark" }}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
               <option value="auto">Auto</option>
               {[1, 2, 3, 4, 5].map((d) => (
@@ -168,7 +171,8 @@ export default function AdminAiGeneratePage() {
             <select
               value={styleHint}
               onChange={(e) => setStyleHint(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+              style={{ colorScheme: "dark" }}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
               <option value="auto">Auto</option>
               <option value="direct">Direct</option>

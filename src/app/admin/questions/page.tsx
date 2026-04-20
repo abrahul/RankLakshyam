@@ -93,7 +93,8 @@ export default function QuestionsPage() {
         <select
           value={topicFilter}
           onChange={(e) => setTopicFilter(e.target.value)}
-          className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+          style={{ colorScheme: "dark" }}
+          className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
         >
           <option value="">All Topics</option>
           {TOPICS.map((t) => (
@@ -103,7 +104,8 @@ export default function QuestionsPage() {
         <select
           value={verifiedFilter}
           onChange={(e) => setVerifiedFilter(e.target.value)}
-          className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+          style={{ colorScheme: "dark" }}
+          className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
         >
           <option value="">All Status</option>
           <option value="true">✅ Verified</option>
@@ -419,7 +421,8 @@ function QuestionModal({ editId, onClose, onSaved }: { editId: string | null; on
                 <select
                   value={form.topicId}
                   onChange={(e) => setForm((f) => ({ ...f, topicId: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                  style={{ colorScheme: "dark" }}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
                 >
                   {TOPICS.map((t) => (
                     <option key={t.id} value={t.id}>{t.label}</option>
@@ -431,7 +434,8 @@ function QuestionModal({ editId, onClose, onSaved }: { editId: string | null; on
                 <select
                   value={form.difficulty}
                   onChange={(e) => setForm((f) => ({ ...f, difficulty: parseInt(e.target.value) }))}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                  style={{ colorScheme: "dark" }}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
                 >
                   {[1, 2, 3, 4, 5].map((d) => (
                     <option key={d} value={d}>{"⭐".repeat(d)} ({d})</option>
@@ -455,7 +459,8 @@ function QuestionModal({ editId, onClose, onSaved }: { editId: string | null; on
               <select
                 value={form.questionStyle}
                 onChange={(e) => setForm((f) => ({ ...f, questionStyle: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+                style={{ colorScheme: "dark" }}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
               >
                 <option value="direct">Direct</option>
                 <option value="concept">Concept</option>
