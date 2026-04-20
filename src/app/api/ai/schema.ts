@@ -124,6 +124,13 @@ export const PscQuestionJsonSchema = {
   },
 } as const;
 
+export const PscQuestionArrayJsonSchema = {
+  type: "array",
+  minItems: 5,
+  maxItems: 5,
+  items: PscQuestionJsonSchema,
+} as const;
+
 export const PscValidationResultSchema = z.object({
   isValid: z.boolean(),
   issues: z.array(z.string()).default([]),

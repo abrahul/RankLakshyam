@@ -98,12 +98,20 @@ export default function AdminAiGeneratePage() {
             Paste source material, generate PSC-style MCQ JSON, and optionally save to DB.
           </p>
         </div>
-        <Link
-          href="/admin/questions"
-          className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-surface-200/60 hover:bg-white/10 hover:text-surface-200 transition-all"
-        >
-          View Questions →
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/ai/dataset"
+            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-surface-200/60 hover:bg-white/10 hover:text-surface-200 transition-all"
+          >
+            Dataset Builder →
+          </Link>
+          <Link
+            href="/admin/questions"
+            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-surface-200/60 hover:bg-white/10 hover:text-surface-200 transition-all"
+          >
+            View Questions →
+          </Link>
+        </div>
       </div>
 
       <div className="glass-card p-5 space-y-4">
@@ -304,4 +312,3 @@ export default function AdminAiGeneratePage() {
     </div>
   );
 }
-

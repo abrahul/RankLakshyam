@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const {
       sourceText,
       sourceType,
+      sourceRef,
       topicHint,
       examTags,
       difficultyHint,
@@ -100,7 +101,17 @@ export async function POST(request: Request) {
       examTags: (parsed.examTags ?? []).filter((t) =>
         ["ldc", "lgs", "degree", "police"].includes(t)
       ),
+      sourceType:
+        sourceType === "pyq" ||
+        sourceType === "pyq_variant" ||
+        sourceType === "institute" ||
+        sourceType === "internet"
+          ? sourceType
+          : undefined,
+      sourceRef: typeof sourceRef === "string" ? sourceRef : "",
+      status: "review",
       isVerified: false,
+      createdByLabel: "ai",
       createdBy: guard.userId,
     });
 
@@ -121,4 +132,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

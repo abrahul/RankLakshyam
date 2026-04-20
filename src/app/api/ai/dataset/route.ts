@@ -1,0 +1,355 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireAdmin } from "@/lib/utils/admin-guard";
+import { connectDB } from "@/lib/db/connection";
+import Question from "@/lib/db/models/Question";
+import {
+  GENERATOR_SYSTEM_PROMPT,
+  VALIDATOR_SYSTEM_PROMPT,
+  HARD_CONSTRAINTS,
+  buildGeneratorUserPrompt,
+  VARIANTS_SYSTEM_PROMPT,
+  buildVariantsUserPrompt,
+} from "@/app/api/ai/prompts";
+import { createOpenAIJsonResponse } from "@/app/api/ai/openai";
+import {
+  PscQuestionJsonSchema,
+  PscQuestionSchema,
+  PscValidationResultSchema,
+  type PscQuestion,
+} from "@/app/api/ai/schema";
+
+const SourceTypeSchema = z.enum(["pyq", "institute", "internet"]);
+
+const DatasetSourceSchema = z.object({
+  sourceType: SourceTypeSchema,
+  sourceRef: z.string().optional().default(""),
+  sourceText: z.string().min(1),
+  topicHint: z.string().optional(),
+  examTags: z.array(z.string()).optional(),
+});
+
+const DatasetRequestSchema = z.object({
+  sources: z.array(DatasetSourceSchema).min(1),
+  store: z.boolean().optional().default(true),
+  totalQuestions: z.number().int().min(1).max(20).optional().default(20),
+  useAiValidator: z.boolean().optional().default(true),
+  generatePyqVariants: z.boolean().optional().default(true),
+});
+
+type Style = "direct" | "concept" | "statement" | "negative" | "indirect";
+
+const DEFAULT_MIX: Array<{ style: Style; count: number; difficultyHint: string }> = [
+  { style: "direct", count: 6, difficultyHint: "1-2" },
+  { style: "concept", count: 6, difficultyHint: "3" },
+  { style: "statement", count: 3, difficultyHint: "4" },
+  { style: "negative", count: 3, difficultyHint: "4" },
+  { style: "indirect", count: 2, difficultyHint: "3-4" },
+];
+
+function pickSource(
+  sources: Array<z.infer<typeof DatasetSourceSchema>>,
+  style: Style,
+  idx: number
+) {
+  const pyq = sources.filter((s) => s.sourceType === "pyq");
+  const nonPyq = sources.filter((s) => s.sourceType !== "pyq");
+
+  if (style === "direct" && pyq.length) return pyq[idx % pyq.length];
+  if (style !== "direct" && nonPyq.length) return nonPyq[idx % nonPyq.length];
+  return sources[idx % sources.length];
+}
+
+function normalizeExamTags(tags: string[] | undefined): Array<"ldc" | "lgs" | "degree" | "police"> {
+  const allowed = ["ldc", "lgs", "degree", "police"] as const;
+  const set = new Set(
+    (tags ?? [])
+      .map((t) => String(t).toLowerCase())
+      .filter((t): t is (typeof allowed)[number] => (allowed as readonly string[]).includes(t))
+  );
+  return Array.from(set) as Array<"ldc" | "lgs" | "degree" | "police">;
+}
+
+async function generateOne({
+  apiKey,
+  model,
+  source,
+  styleHint,
+  difficultyHint,
+}: {
+  apiKey: string;
+  model: string;
+  source: z.infer<typeof DatasetSourceSchema>;
+  styleHint: Style;
+  difficultyHint: string;
+}): Promise<PscQuestion> {
+  const system = `${GENERATOR_SYSTEM_PROMPT}\n\n${HARD_CONSTRAINTS}`.trim();
+  const user = buildGeneratorUserPrompt({
+    sourceType: source.sourceType,
+    topicHint: source.topicHint,
+    examTags: source.examTags,
+    difficultyHint,
+    styleHint,
+    sourceText: source.sourceText,
+  });
+
+  const { json } = await createOpenAIJsonResponse<unknown>({
+    apiKey,
+    model,
+    system,
+    user,
+    schemaName: "psc_question",
+    jsonSchema: PscQuestionJsonSchema,
+    temperature: 0.4,
+  });
+
+  return PscQuestionSchema.parse(json);
+}
+
+async function validateOne({
+  apiKey,
+  model,
+  question,
+}: {
+  apiKey: string;
+  model: string;
+  question: PscQuestion;
+}) {
+  const system = `${VALIDATOR_SYSTEM_PROMPT}\n\n${HARD_CONSTRAINTS}`.trim();
+  const user = `Validate this Kerala PSC MCQ JSON strictly. Fix issues in correctedQuestion.\n\nQuestion JSON:\n${JSON.stringify(
+    question
+  )}`;
+
+  const { json } = await createOpenAIJsonResponse<unknown>({
+    apiKey,
+    model,
+    system,
+    user,
+    schemaName: "psc_validation_result",
+    jsonSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["isValid", "issues", "suggestions", "correctedQuestion"],
+      properties: {
+        isValid: { type: "boolean" },
+        issues: { type: "array", items: { type: "string" } },
+        suggestions: { type: "array", items: { type: "string" } },
+        correctedQuestion: PscQuestionJsonSchema,
+      },
+    },
+    temperature: 0.2,
+  });
+
+  return PscValidationResultSchema.parse(json);
+}
+
+export async function POST(request: Request) {
+  const guard = await requireAdmin();
+  if (!guard.authorized) return guard.response;
+
+  try {
+    const payload = DatasetRequestSchema.parse(await request.json());
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    const model = process.env.OPENAI_MODEL || "gpt-5-mini";
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "MISSING_API_KEY",
+            message: "Set OPENAI_API_KEY to run dataset generation",
+            statusCode: 500,
+          },
+        },
+        { status: 500 }
+      );
+    }
+
+    const jobs: Array<{ style: Style; difficultyHint: string }> = [];
+    for (const chunk of DEFAULT_MIX) {
+      for (let i = 0; i < chunk.count; i++) {
+        jobs.push({ style: chunk.style, difficultyHint: chunk.difficultyHint });
+      }
+    }
+    const target = Math.min(payload.totalQuestions, jobs.length);
+    const selectedJobs = jobs.slice(0, target);
+
+    await connectDB();
+
+    const report = {
+      inserted: 0,
+      skippedDuplicates: 0,
+      skippedInvalid: 0,
+      errors: [] as string[],
+      breakdown: {
+        pyq: 0,
+        pyq_variant: 0,
+        institute: 0,
+        internet: 0,
+      },
+      samples: [] as Array<{ id: string; textEn: string; sourceType?: string; questionStyle: string }>,
+    };
+
+    for (let i = 0; i < selectedJobs.length; i++) {
+      const { style, difficultyHint } = selectedJobs[i];
+      const source = pickSource(payload.sources, style, i);
+
+      try {
+        const generated = await generateOne({
+          apiKey,
+          model,
+          source,
+          styleHint: style,
+          difficultyHint,
+        });
+
+        const validated = payload.useAiValidator
+          ? await validateOne({ apiKey, model, question: generated })
+          : { isValid: true, issues: [], suggestions: [], correctedQuestion: generated };
+
+        if (!validated.isValid) {
+          report.skippedInvalid++;
+          continue;
+        }
+
+        const finalQuestion = validated.correctedQuestion;
+
+        const existing = await Question.findOne({ "text.en": finalQuestion.text.en }).select({ _id: 1 }).lean();
+        if (existing) {
+          report.skippedDuplicates++;
+          continue;
+        }
+
+        if (!payload.store) continue;
+
+        const created = await Question.create({
+          text: { en: finalQuestion.text.en, ml: finalQuestion.text.ml ?? "" },
+          options: finalQuestion.options.map((o) => ({
+            key: o.key,
+            en: o.en,
+            ml: o.ml ?? "",
+          })),
+          correctOption: finalQuestion.correctOption,
+          explanation: {
+            en: finalQuestion.explanation.en,
+            ml: finalQuestion.explanation.ml,
+          },
+          topicId: finalQuestion.topicId,
+          subTopic: finalQuestion.subTopic ?? "",
+          tags: finalQuestion.tags ?? [],
+          difficulty: finalQuestion.difficulty,
+          questionStyle: finalQuestion.questionStyle,
+          examTags: normalizeExamTags(finalQuestion.examTags),
+          sourceType: source.sourceType,
+          sourceRef: source.sourceRef ?? "",
+          status: "review",
+          isVerified: false,
+          createdByLabel: "ai",
+          createdBy: guard.userId,
+        });
+
+        report.inserted++;
+        if (source.sourceType === "pyq") report.breakdown.pyq++;
+        if (source.sourceType === "institute") report.breakdown.institute++;
+        if (source.sourceType === "internet") report.breakdown.internet++;
+
+        if (report.samples.length < 5) {
+          report.samples.push({
+            id: String(created._id),
+            textEn: created.text.en,
+            sourceType: created.sourceType,
+            questionStyle: created.questionStyle,
+          });
+        }
+
+        if (payload.generatePyqVariants && source.sourceType === "pyq") {
+          // Generate 3 variants (concept + reverse/indirect + negative) using the variants endpoint prompt spec.
+          // We keep only the first 3 to control cost while meeting the requirement.
+          try {
+            // Reuse the existing variants prompt via OpenAI directly (exactly 5 variants).
+            const { json: variantsJson } = await createOpenAIJsonResponse<unknown>({
+              apiKey,
+              model,
+              system: `${VARIANTS_SYSTEM_PROMPT}\n\n${HARD_CONSTRAINTS}`.trim(),
+              user: buildVariantsUserPrompt(JSON.stringify(finalQuestion)),
+              schemaName: "psc_question_variants",
+              jsonSchema: {
+                type: "array",
+                minItems: 5,
+                maxItems: 5,
+                items: PscQuestionJsonSchema,
+              },
+              temperature: 0.5,
+            });
+
+            const variantsArray = Array.isArray(variantsJson) ? variantsJson : [];
+            const picked = variantsArray.slice(0, 3).map((q) => PscQuestionSchema.parse(q));
+
+            for (const v of picked) {
+              const dup = await Question.findOne({ "text.en": v.text.en }).select({ _id: 1 }).lean();
+              if (dup) {
+                report.skippedDuplicates++;
+                continue;
+              }
+
+              const createdVariant = await Question.create({
+                text: { en: v.text.en, ml: v.text.ml ?? "" },
+                options: v.options.map((o) => ({
+                  key: o.key,
+                  en: o.en,
+                  ml: o.ml ?? "",
+                })),
+                correctOption: v.correctOption,
+                explanation: { en: v.explanation.en, ml: v.explanation.ml },
+                topicId: v.topicId,
+                subTopic: v.subTopic ?? "",
+                tags: v.tags ?? [],
+                difficulty: v.difficulty,
+                questionStyle: v.questionStyle,
+                examTags: normalizeExamTags(v.examTags),
+                sourceType: "pyq_variant",
+                sourceRef: source.sourceRef ?? "",
+                parentQuestionId: created._id,
+                status: "review",
+                isVerified: false,
+                createdByLabel: "ai",
+                createdBy: guard.userId,
+              });
+
+              report.inserted++;
+              report.breakdown.pyq_variant++;
+
+              if (report.samples.length < 5) {
+                report.samples.push({
+                  id: String(createdVariant._id),
+                  textEn: createdVariant.text.en,
+                  sourceType: createdVariant.sourceType,
+                  questionStyle: createdVariant.questionStyle,
+                });
+              }
+            }
+          } catch (e) {
+            report.errors.push(
+              `PYQ variants failed for Q${i + 1}: ${e instanceof Error ? e.message : "unknown error"}`
+            );
+          }
+        }
+      } catch (e) {
+        report.errors.push(
+          `Q${i + 1} failed: ${e instanceof Error ? e.message : "unknown error"}`
+        );
+      }
+    }
+
+    return NextResponse.json({ success: true, data: report });
+  } catch (error) {
+    console.error("AI dataset error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to build dataset";
+    return NextResponse.json(
+      { success: false, error: { code: "SERVER_ERROR", message, statusCode: 500 } },
+      { status: 500 }
+    );
+  }
+}
