@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { text, options, correctOption, explanation, topicId, subTopic, tags, difficulty, examTags, pyq } = body;
+    const { text, options, correctOption, explanation, topicId, subTopic, tags, difficulty, examTags, pyq, questionStyle } = body;
 
     // Validation
     if (!text?.en || !options || options.length !== 4 || !correctOption || !topicId) {
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
       subTopic: subTopic || "",
       tags: tags || [],
       difficulty: difficulty || 2,
+      questionStyle: questionStyle || "direct",
       examTags: examTags || [],
       pyq: pyq || undefined,
       isVerified: true, // Admin-created = auto-verified

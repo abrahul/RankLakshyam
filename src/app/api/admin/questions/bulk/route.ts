@@ -57,6 +57,7 @@ export async function POST(request: Request) {
           subTopic: q.subTopic || "",
           tags: q.tags || [],
           difficulty: q.difficulty || 2,
+          questionStyle: q.questionStyle || "direct",
           examTags: q.examTags || [],
           pyq: q.pyq || undefined,
           isVerified: q.isVerified ?? true,

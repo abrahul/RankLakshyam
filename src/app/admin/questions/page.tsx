@@ -243,6 +243,7 @@ function QuestionModal({ editId, onClose, onSaved }: { editId: string | null; on
     subTopic: "",
     tags: "",
     difficulty: 2,
+    questionStyle: "direct",
     examTags: ["ldc"] as string[],
   });
   const [saving, setSaving] = useState(false);
@@ -264,6 +265,7 @@ function QuestionModal({ editId, onClose, onSaved }: { editId: string | null; on
             subTopic: q.subTopic || "",
             tags: (q.tags || []).join(", "),
             difficulty: q.difficulty || 2,
+            questionStyle: q.questionStyle || "direct",
             examTags: q.examTags || [],
           });
         }
@@ -445,6 +447,22 @@ function QuestionModal({ editId, onClose, onSaved }: { editId: string | null; on
                   className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
                 />
               </div>
+            </div>
+
+            {/* Style */}
+            <div>
+              <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Question Style</label>
+              <select
+                value={form.questionStyle}
+                onChange={(e) => setForm((f) => ({ ...f, questionStyle: e.target.value }))}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+              >
+                <option value="direct">Direct</option>
+                <option value="concept">Concept</option>
+                <option value="statement">Statement</option>
+                <option value="negative">Negative</option>
+                <option value="indirect">Indirect</option>
+              </select>
             </div>
 
             {/* Exam Tags */}

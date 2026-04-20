@@ -10,6 +10,7 @@ export interface IQuestion extends Document {
   subTopic: string;
   tags: string[];
   difficulty: 1 | 2 | 3 | 4 | 5;
+  questionStyle: "direct" | "concept" | "statement" | "negative" | "indirect";
   examTags: Array<"ldc" | "lgs" | "degree" | "police">;
   pyq?: { exam: string; year: number; questionNumber: number };
   isVerified: boolean;
@@ -47,6 +48,11 @@ const QuestionSchema = new Schema<IQuestion>(
     subTopic: { type: String, default: "" },
     tags: [String],
     difficulty: { type: Number, min: 1, max: 5, default: 2 },
+    questionStyle: {
+      type: String,
+      enum: ["direct", "concept", "statement", "negative", "indirect"],
+      default: "direct",
+    },
     examTags: [{ type: String, enum: ["ldc", "lgs", "degree", "police"] }],
     pyq: {
       exam: String,
@@ -65,6 +71,7 @@ const QuestionSchema = new Schema<IQuestion>(
 
 QuestionSchema.index({ topicId: 1, difficulty: 1, examTags: 1, isVerified: 1 });
 QuestionSchema.index({ topicId: 1, subTopic: 1, difficulty: 1 });
+QuestionSchema.index({ topicId: 1, questionStyle: 1, difficulty: 1 });
 QuestionSchema.index({ "pyq.exam": 1, "pyq.year": -1, "pyq.questionNumber": 1 });
 QuestionSchema.index({ tags: 1 });
 QuestionSchema.index({ isVerified: 1, createdAt: -1 });

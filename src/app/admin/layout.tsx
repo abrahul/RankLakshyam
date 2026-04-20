@@ -11,6 +11,7 @@ const navItems = [
   { href: "/admin", icon: "📊", label: "Dashboard" },
   { href: "/admin/questions", icon: "❓", label: "Questions" },
   { href: "/admin/import", icon: "📥", label: "Import" },
+  { href: "/admin/ai", icon: "🤖", label: "AI Generate" },
   { href: "/admin/users", icon: "👥", label: "Users" },
 ];
 

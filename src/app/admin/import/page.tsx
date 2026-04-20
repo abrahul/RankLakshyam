@@ -16,6 +16,7 @@ const SAMPLE_JSON = `[
     "topicId": "history",
     "subTopic": "kerala_history",
     "difficulty": 2,
+    "questionStyle": "direct",
     "examTags": ["ldc", "lgs"],
     "tags": ["tag1", "tag2"]
   }
@@ -232,6 +233,7 @@ export default function ImportPage() {
           <p><code className="text-primary-300">explanation</code> — {`{ en, ml }`} (optional)</p>
           <p><code className="text-primary-300">topicId</code> — history, geography, polity, science, current_affairs, language, reasoning, gk</p>
           <p><code className="text-primary-300">difficulty</code> — 1 to 5 (default: 2)</p>
+          <p><code className="text-primary-300">questionStyle</code> — direct, concept, statement, negative, indirect (default: direct)</p>
           <p><code className="text-primary-300">examTags</code> — [ldc, lgs, degree, police]</p>
         </div>
       </div>
