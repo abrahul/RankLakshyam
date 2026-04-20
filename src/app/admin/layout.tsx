@@ -55,7 +55,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
           <Link href="/admin" className="flex items-center gap-2">
             <span className="text-xl">🏆</span>
             <div>
-              <h1 className="text-sm font-bold text-white font-[family-name:var(--font-display)]">RankMukhyam</h1>
+              <h1 className="text-sm font-bold text-white font-[family-name:var(--font-display)]">RankLakshyam</h1>
               <p className="text-[10px] text-primary-400 font-semibold tracking-wide">ADMIN PANEL</p>
             </div>
           </Link>

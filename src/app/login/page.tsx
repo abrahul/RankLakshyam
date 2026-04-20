@@ -1,10 +1,10 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginPageInner() {
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
@@ -34,7 +34,7 @@ export default function LoginPage() {
             <span className="text-4xl">🏆</span>
           </div>
           <h1 className="text-3xl font-bold font-[family-name:var(--font-display)] tracking-tight text-white mb-2">
-            RankMukhyam
+            RankLakshyam
           </h1>
           <p className="text-surface-200 text-lg">
             Kerala PSC Preparation System
@@ -102,5 +102,19 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-dvh flex items-center justify-center px-6">
+          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+        </main>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   );
 }

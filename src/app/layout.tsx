@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RankMukhyam — Kerala PSC Preparation",
+  title: "RankLakshyam — Kerala PSC Preparation",
   description: "Daily practice system for Kerala PSC aspirants. Topic-wise tests, previous year questions, performance analytics, and leaderboards.",
   keywords: ["Kerala PSC", "PSC preparation", "LDC", "LGS", "Degree Level", "Kerala PSC questions", "PSC mock test"],
   manifest: "/manifest.json",

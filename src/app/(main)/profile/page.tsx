@@ -239,7 +239,7 @@ export default function ProfilePage() {
       </button>
 
       <p className="text-center text-xs text-surface-200/30">
-        RankMukhyam v0.1.0 • Made with ❤️ for Kerala PSC Aspirants
+        RankLakshyam v0.1.0 • Made with ❤️ for Kerala PSC Aspirants
       </p>
     </div>
   );
