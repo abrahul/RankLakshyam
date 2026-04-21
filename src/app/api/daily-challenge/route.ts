@@ -4,8 +4,8 @@ import { connectDB } from "@/lib/db/connection";
 import DailyChallenge from "@/lib/db/models/DailyChallenge";
 import Question from "@/lib/db/models/Question";
 import TestSession from "@/lib/db/models/TestSession";
-import Attempt from "@/lib/db/models/Attempt";
 import { getTodayIST } from "@/lib/utils/scoring";
+import mongoose from "mongoose";
 
 // ─── Content Strategy: Topic weights & difficulty curve ───────────────────────
 const TOPIC_WEIGHTS: Record<string, number> = {
@@ -29,7 +29,7 @@ const DIFFICULTY_SLOTS: Array<[number, number]> = [
 ];
 
 async function buildWeightedChallenge(excludeIds: string[] = []): Promise<string[]> {
-  // Allocate questions per topic
+  // Allocate questions per topic (20 total)
   const topicTargets: Record<string, number> = {};
   let allocated = 0;
   for (const [topic, weight] of Object.entries(TOPIC_WEIGHTS)) {
@@ -41,35 +41,82 @@ async function buildWeightedChallenge(excludeIds: string[] = []): Promise<string
   const diff = 20 - allocated;
   topicTargets["history"] += diff;
 
-  const selectedIds: string[] = [];
-  let slotIndex = 0;
-
+  // Create a 20-slot topic plan (topic order matches original loop behavior)
+  const topicPlan: string[] = [];
   for (const [topic, count] of Object.entries(topicTargets)) {
-    if (count <= 0) continue;
-    for (let i = 0; i < count; i++) {
-      const [minD, maxD] = DIFFICULTY_SLOTS[Math.min(slotIndex, DIFFICULTY_SLOTS.length - 1)];
-      slotIndex++;
+    for (let i = 0; i < count; i++) topicPlan.push(topic);
+  }
 
-      const allExclude = [...excludeIds, ...selectedIds];
+  const used = new Set<string>(excludeIds);
 
-      // Try to find at requested difficulty
-      let q = await Question.findOne({
-        topicId: topic,
-        isVerified: true,
-        difficulty: { $gte: minD, $lte: maxD },
-        _id: { $nin: allExclude },
-      }).select("_id").lean() as { _id: { toString: () => string } } | null;
+  // Fetch a random pool per topic in parallel to avoid 20 sequential DB calls.
+  const perTopicPools = await Promise.all(
+    Object.keys(topicTargets).map(async (topic) => {
+      const target = topicTargets[topic] || 0;
+      if (target <= 0) return { topic, pool: [] as Array<{ _id: mongoose.Types.ObjectId; difficulty: number }> };
 
-      // Fallback: any difficulty for this topic
-      if (!q) {
-        q = await Question.findOne({
-          topicId: topic,
-          isVerified: true,
-          _id: { $nin: allExclude },
-        }).select("_id").lean() as { _id: { toString: () => string } } | null;
+      const sampleSize = Math.min(400, Math.max(80, target * 40));
+      const pool = await Question.aggregate<Array<{ _id: mongoose.Types.ObjectId; difficulty: number }>>([
+        { $match: { topicId: topic, isVerified: true } },
+        { $sample: { size: sampleSize } },
+        { $project: { _id: 1, difficulty: 1 } },
+      ]);
+
+      return { topic, pool };
+    })
+  );
+
+  const poolByTopic = new Map<string, Array<{ _id: mongoose.Types.ObjectId; difficulty: number }>>(
+    perTopicPools.map((x) => [x.topic, x.pool])
+  );
+
+  const selectedIds: string[] = [];
+
+  function takeFromTopic(topic: string, minD: number, maxD: number): string | null {
+    const pool = poolByTopic.get(topic) || [];
+
+    for (const q of pool) {
+      const id = q._id.toString();
+      if (used.has(id)) continue;
+      if (q.difficulty >= minD && q.difficulty <= maxD) {
+        used.add(id);
+        selectedIds.push(id);
+        return id;
       }
+    }
 
-      if (q) selectedIds.push(q._id.toString());
+    for (const q of pool) {
+      const id = q._id.toString();
+      if (used.has(id)) continue;
+      used.add(id);
+      selectedIds.push(id);
+      return id;
+    }
+
+    return null;
+  }
+
+  // Fill planned 20 slots
+  for (let i = 0; i < 20; i++) {
+    const topic = topicPlan[i] || "history";
+    const [minD, maxD] = DIFFICULTY_SLOTS[Math.min(i, DIFFICULTY_SLOTS.length - 1)];
+    takeFromTopic(topic, minD, maxD);
+  }
+
+  // Final fallback: top up from any verified questions
+  const missing = 20 - selectedIds.length;
+  if (missing > 0) {
+    const fallback = await Question.aggregate<Array<{ _id: mongoose.Types.ObjectId }>>([
+      { $match: { isVerified: true } },
+      { $sample: { size: Math.min(400, missing * 20) } },
+      { $project: { _id: 1 } },
+    ]);
+    for (const q of fallback) {
+      if (selectedIds.length >= 20) break;
+      const id = q._id.toString();
+      if (used.has(id)) continue;
+      used.add(id);
+      selectedIds.push(id);
     }
   }
 

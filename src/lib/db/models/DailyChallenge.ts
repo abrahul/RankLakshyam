@@ -5,7 +5,7 @@ export interface IDailyChallenge extends Document {
   date: string;
   questionIds: mongoose.Types.ObjectId[];
   topicMix: Record<string, number>;
-  difficultyLevel: "easy" | "medium" | "hard";
+  difficultyLevel: "easy" | "medium" | "hard" | "mixed";
   stats: {
     totalParticipants: number;
     avgScore: number;
@@ -21,7 +21,7 @@ const DailyChallengeSchema = new Schema<IDailyChallenge>({
   topicMix: { type: Schema.Types.Mixed, default: {} },
   difficultyLevel: {
     type: String,
-    enum: ["easy", "medium", "hard"],
+    enum: ["easy", "medium", "hard", "mixed"],
     default: "medium",
   },
   stats: {
