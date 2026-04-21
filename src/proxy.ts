@@ -4,6 +4,13 @@ import type { NextRequest } from "next/server";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Backward-compatible redirect: /practise -> /practice
+  if (pathname === "/practise" || pathname.startsWith("/practise/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/practice${pathname.slice("/practise".length)}` || "/practice";
+    return NextResponse.redirect(url);
+  }
+
   // Public routes â€” skip auth
   const publicPaths = ["/login", "/api/auth", "/_next", "/favicon.ico", "/manifest.json", "/icons"];
   if (publicPaths.some((p) => pathname.startsWith(p))) {

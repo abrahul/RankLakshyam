@@ -22,26 +22,19 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchDashboard() {
       try {
-        const [perfRes, streakRes, badgeRes] = await Promise.all([
-          fetch("/api/performance"),
-          fetch("/api/streaks"),
-          fetch("/api/badges"),
-        ]);
-
-        const perf = await perfRes.json();
-        const streak = await streakRes.json();
-        const badges = await badgeRes.json();
-
-        const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-        const todayEntry = streak.data?.calendar?.[today];
+        const res = await fetch("/api/dashboard");
+        const dash = await res.json();
+        if (!dash?.success) {
+          throw new Error(dash?.error?.message || "Failed to load dashboard");
+        }
 
         setDashData({
-          hasCompletedToday: !!todayEntry?.completed,
-          streak: streak.data?.currentStreak || 0,
-          xp: perf.data?.overall?.totalXP || 0,
-          accuracy: perf.data?.overall?.accuracy || 0,
-          totalAttempted: perf.data?.overall?.totalAttempted || 0,
-          rankInfo: badges.data?.rank || undefined,
+          hasCompletedToday: !!dash.data?.hasCompletedToday,
+          streak: dash.data?.streak?.currentStreak || 0,
+          xp: dash.data?.overall?.totalXP || 0,
+          accuracy: dash.data?.overall?.accuracy || 0,
+          totalAttempted: dash.data?.overall?.totalAttempted || 0,
+          rankInfo: dash.data?.rank || undefined,
         });
       } catch {
         setDashData({
