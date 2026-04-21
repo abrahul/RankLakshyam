@@ -4,6 +4,54 @@ import { connectDB } from "@/lib/db/connection";
 import User from "@/lib/db/models/User";
 import mongoose from "mongoose";
 
+const authDbSyncTimeoutRaw = Number(process.env.AUTH_DB_SYNC_TIMEOUT_MS);
+const AUTH_DB_SYNC_TIMEOUT_MS =
+  Number.isFinite(authDbSyncTimeoutRaw) && authDbSyncTimeoutRaw > 0
+    ? authDbSyncTimeoutRaw
+    : 1200;
+const AUTH_DB_SYNC_DISABLED = ["0", "false", "off"].includes(
+  String(process.env.AUTH_DB_SYNC ?? "").toLowerCase()
+);
+
+let authDbSyncDisabledUntil = 0;
+let authDbSyncFailureCount = 0;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return Promise.reject(new Error(`${label} timed out`));
+  }
+
+  let timeoutId: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
+function markAuthDbSyncSuccess() {
+  authDbSyncFailureCount = 0;
+  authDbSyncDisabledUntil = 0;
+}
+
+function markAuthDbSyncFailure(error: unknown) {
+  const now = Date.now();
+  const wasDisabled = now < authDbSyncDisabledUntil;
+
+  authDbSyncFailureCount = Math.min(authDbSyncFailureCount + 1, 10);
+  const backoffMs = Math.min(30_000 * 2 ** Math.min(authDbSyncFailureCount - 1, 4), 10 * 60_000);
+  authDbSyncDisabledUntil = now + backoffMs;
+
+  if (!wasDisabled) {
+    console.error(
+      `Auth DB sync failed (continuing sign-in). Backing off for ${backoffMs}ms:`,
+      error
+    );
+  }
+}
+
 const authSecret = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
 if (!authSecret || authSecret.includes("generate-a-random-secret-here")) {
   throw new Error(
@@ -57,48 +105,63 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // Sync user from DB periodically so role/onboarding changes take effect for existing sessions.
       if (email && (!hasValidDbUserId || shouldRefreshFromDb)) {
-        try {
-          await connectDB();
-          let dbUser = await User.findOne({ email }).lean();
+         if (AUTH_DB_SYNC_DISABLED) return token;
+         if (Date.now() < authDbSyncDisabledUntil) return token;
 
-          // Create if missing. Handle race condition where another request creates it first.
-          if (!dbUser) {
-            try {
-              const created = await User.create({
-                name: String(name ?? "User"),
-                email,
-                image: String(image ?? ""),
-                role: "user",
-                onboarded: false,
-              });
-              dbUser = created.toObject();
-            } catch (err) {
-              const error = err as { code?: number };
-              if (error?.code === 11000) {
-                dbUser = await User.findOne({ email }).lean();
-              } else {
-                throw err;
-              }
-            }
-          }
+         try {
+           const deadline = Date.now() + AUTH_DB_SYNC_TIMEOUT_MS;
+           const remaining = () => Math.max(1, deadline - Date.now());
 
-          if (!dbUser) throw new Error("User lookup failed after upsert.");
+           await withTimeout(connectDB(), remaining(), "connectDB");
+           let dbUser = await withTimeout(User.findOne({ email }).lean(), remaining(), "User.findOne");
 
-          token.userId = String(dbUser._id);
-          token.role = dbUser.role ?? token.role;
-          token.onboarded =
-            typeof dbUser.onboarded === "boolean" ? dbUser.onboarded : token.onboarded;
-          token.targetExam = dbUser.targetExam ?? token.targetExam;
-          token.dbSyncedAt = Date.now();
-        } catch (error) {
-          console.error("Auth DB sync failed (continuing sign-in):", error);
-          // Don't poison the token with a non-ObjectId id; allow retry on next request.
-          if (typeof token.userId !== "string" || !mongoose.isValidObjectId(token.userId)) {
-            delete token.userId;
-          }
-          token.dbSyncedAt = Date.now();
-        }
-      }
+           // Create if missing. Handle race condition where another request creates it first.
+           if (!dbUser) {
+             try {
+               const created = await withTimeout(
+                 User.create({
+                   name: String(name ?? "User"),
+                   email,
+                   image: String(image ?? ""),
+                   role: "user",
+                   onboarded: false,
+                 }),
+                 remaining(),
+                 "User.create"
+               );
+               dbUser = created.toObject();
+             } catch (err) {
+               const error = err as { code?: number };
+               if (error?.code === 11000) {
+                 dbUser = await withTimeout(
+                   User.findOne({ email }).lean(),
+                   remaining(),
+                   "User.findOne(dup)"
+                 );
+               } else {
+                 throw err;
+               }
+             }
+           }
+
+           if (!dbUser) throw new Error("User lookup failed after upsert.");
+
+           token.userId = String(dbUser._id);
+           token.role = dbUser.role ?? token.role;
+           token.onboarded =
+             typeof dbUser.onboarded === "boolean" ? dbUser.onboarded : token.onboarded;
+           token.targetExam = dbUser.targetExam ?? token.targetExam;
+           token.dbSyncedAt = Date.now();
+           markAuthDbSyncSuccess();
+         } catch (error) {
+           markAuthDbSyncFailure(error);
+           // Don't poison the token with a non-ObjectId id; allow retry on next request.
+           if (typeof token.userId !== "string" || !mongoose.isValidObjectId(token.userId)) {
+             delete token.userId;
+           }
+           token.dbSyncedAt = Date.now();
+         }
+       }
 
       return token;
     },

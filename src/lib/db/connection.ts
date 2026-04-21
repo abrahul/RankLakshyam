@@ -92,6 +92,7 @@ export async function connectDB() {
         return await mongoose.connect(uri, {
           maxPoolSize: 10,
           serverSelectionTimeoutMS: 5000,
+          connectTimeoutMS: 5000,
           socketTimeoutMS: 45000,
           bufferCommands: false,
         });
