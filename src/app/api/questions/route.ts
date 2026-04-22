@@ -12,6 +12,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const topic = searchParams.get("topic");
+    const subTopic = searchParams.get("subTopic");
+    const exam = searchParams.get("exam");
     const difficulty = searchParams.get("difficulty");
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -20,6 +22,8 @@ export async function GET(request: Request) {
 
     const filter: Record<string, unknown> = { isVerified: true };
     if (topic) filter.topicId = topic;
+    if (subTopic) filter.subTopic = subTopic;
+    if (exam) filter.examTags = exam; // MongoDB matches if array contains value
     if (difficulty) filter.difficulty = parseInt(difficulty, 10);
 
     const skip = (page - 1) * limit;

@@ -33,9 +33,22 @@ interface AttemptResult {
   };
 }
 
-export default function TopicPracticeClient({ topicId }: { topicId: string }) {
+export default function TopicPracticeClient({
+  topicId,
+  subTopic,
+  exam,
+}: {
+  topicId: string;
+  subTopic?: string;
+  exam?: string;
+}) {
   const router = useRouter();
-  const topicLabel = useMemo(() => topicId.replaceAll("_", " ").toUpperCase(), [topicId]);
+  const topicLabel = useMemo(() => {
+    let label = topicId.replaceAll("_", " ").toUpperCase();
+    if (subTopic) label += ` › ${subTopic.replaceAll("_", " ")}`;
+    if (exam) label += ` [${exam.toUpperCase()}]`;
+    return label;
+  }, [topicId, subTopic, exam]);
 
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -67,7 +80,10 @@ export default function TopicPracticeClient({ topicId }: { topicId: string }) {
   useEffect(() => {
     async function loadTopicPractice() {
       try {
-        const res = await fetch(`/api/questions?topic=${encodeURIComponent(topicId)}&limit=20&page=1`);
+        const params = new URLSearchParams({ topic: topicId, limit: "20", page: "1" });
+        if (subTopic) params.set("subTopic", subTopic);
+        if (exam) params.set("exam", exam);
+        const res = await fetch(`/api/questions?${params}`);
         const data = await res.json();
 
         if (!data.success) {
@@ -122,7 +138,7 @@ export default function TopicPracticeClient({ topicId }: { topicId: string }) {
     setQuestions([]);
 
     loadTopicPractice();
-  }, [topicId]);
+  }, [topicId, subTopic, exam]);
 
   const submitAnswer = useCallback(async () => {
     if (!selectedOption || !sessionId || submitting) return;
