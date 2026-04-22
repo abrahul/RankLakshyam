@@ -13,6 +13,7 @@ import StylePerformance from "@/lib/db/models/StylePerformance";
 import TestAttempt from "@/lib/db/models/TestAttempt";
 import { calculateXP, getTodayIST, round } from "@/lib/utils/scoring";
 import { checkNewBadges, getStreakMilestone, getRank, getNextRank, getBadgeDef } from "@/lib/utils/gamification";
+import mongoose from "mongoose";
 
 export async function POST(request: Request) {
   try {
@@ -27,6 +28,27 @@ export async function POST(request: Request) {
     if (!sessionId || !questionId || !selectedOption || timeTakenSec === undefined) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_INPUT", message: "sessionId, questionId, selectedOption, and timeTakenSec are required", statusCode: 400 } },
+        { status: 400 }
+      );
+    }
+
+    if (!mongoose.isValidObjectId(sessionId) || !mongoose.isValidObjectId(questionId)) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_INPUT", message: "Invalid sessionId or questionId", statusCode: 400 } },
+        { status: 400 }
+      );
+    }
+
+    if (!["A", "B", "C", "D"].includes(String(selectedOption))) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_INPUT", message: "selectedOption must be A, B, C, or D", statusCode: 400 } },
+        { status: 400 }
+      );
+    }
+
+    if (typeof timeTakenSec !== "number" || !Number.isFinite(timeTakenSec) || timeTakenSec < 0 || timeTakenSec > 60 * 60) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_INPUT", message: "timeTakenSec must be a valid number", statusCode: 400 } },
         { status: 400 }
       );
     }

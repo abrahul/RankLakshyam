@@ -3,23 +3,30 @@ import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import User from "@/lib/db/models/User";
 
+function escapeRegex(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // GET all users (admin)
 export async function GET(request: Request) {
   const guard = await requireAdmin();
   if (!guard.authorized) return guard.response;
 
   const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const rawPage = parseInt(searchParams.get("page") || "1", 10);
+  const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
+  const limit = Number.isFinite(rawLimit) ? Math.min(200, Math.max(1, rawLimit)) : 20;
   const search = searchParams.get("search");
 
   await connectDB();
 
   const filter: Record<string, unknown> = {};
   if (search) {
+    const s = escapeRegex(search.slice(0, 64));
     filter.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
+      { name: { $regex: s, $options: "i" } },
+      { email: { $regex: s, $options: "i" } },
     ];
   }
 

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import TestAttempt from "@/lib/db/models/TestAttempt";
 import Question from "@/lib/db/models/Question";
+import mongoose from "mongoose";
 
 type RouteContext<T extends string> = { params: Promise<Record<string, string>> } & { __path?: T };
 
@@ -20,6 +21,12 @@ export async function GET(
     }
 
     const { id } = await params;
+    if (!mongoose.isValidObjectId(id)) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_INPUT", message: "Invalid test attempt id", statusCode: 400 } },
+        { status: 400 }
+      );
+    }
     await connectDB();
 
     const attempt = await TestAttempt.findOne({ _id: id, userId: session.user.id }).lean();

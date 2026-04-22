@@ -7,7 +7,8 @@ interface MilestoneCelebrationProps {
   title: string;
   badgeIcon?: string;
   bonusXP?: number;
-  onDismiss: () => void;
+  onDismiss?: () => void;
+  onClose?: () => void; // alias
 }
 
 export default function MilestoneCelebration({
@@ -16,16 +17,19 @@ export default function MilestoneCelebration({
   badgeIcon,
   bonusXP,
   onDismiss,
+  onClose,
 }: MilestoneCelebrationProps) {
+  const dismiss = onDismiss ?? onClose ?? (() => {});
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Auto-dismiss toast after 3s
   useEffect(() => {
     if (type === "toast") {
-      const timer = setTimeout(onDismiss, 3000);
+      const timer = setTimeout(dismiss, 3000);
       return () => clearTimeout(timer);
     }
-  }, [type, onDismiss]);
+  }, [type, dismiss]);
 
   // Confetti animation
   useEffect(() => {
@@ -130,7 +134,7 @@ export default function MilestoneCelebration({
       <div
         className="absolute inset-0"
         style={{ background: "rgba(2, 6, 23, 0.85)", backdropFilter: "blur(4px)" }}
-        onClick={onDismiss}
+        onClick={dismiss}
       />
 
       {/* Modal */}
@@ -169,7 +173,7 @@ export default function MilestoneCelebration({
         ) : <div className="mb-6" />}
 
         <button
-          onClick={onDismiss}
+          onClick={dismiss}
           className="w-full py-3 rounded-2xl gradient-primary text-white font-semibold text-sm hover:opacity-90 transition-all"
         >
           Awesome! 🎉

@@ -56,7 +56,7 @@ async function buildWeightedChallenge(excludeIds: string[] = []): Promise<string
       if (target <= 0) return { topic, pool: [] as Array<{ _id: mongoose.Types.ObjectId; difficulty: number }> };
 
       const sampleSize = Math.min(400, Math.max(80, target * 40));
-      const pool = await Question.aggregate<Array<{ _id: mongoose.Types.ObjectId; difficulty: number }>>([
+      const pool = await Question.aggregate<{ _id: mongoose.Types.ObjectId; difficulty: number }>([
         { $match: { topicId: topic, isVerified: true } },
         { $sample: { size: sampleSize } },
         { $project: { _id: 1, difficulty: 1 } },
@@ -106,7 +106,7 @@ async function buildWeightedChallenge(excludeIds: string[] = []): Promise<string
   // Final fallback: top up from any verified questions
   const missing = 20 - selectedIds.length;
   if (missing > 0) {
-    const fallback = await Question.aggregate<Array<{ _id: mongoose.Types.ObjectId }>>([
+    const fallback = await Question.aggregate<{ _id: mongoose.Types.ObjectId }>([
       { $match: { isVerified: true } },
       { $sample: { size: Math.min(400, missing * 20) } },
       { $project: { _id: 1 } },

@@ -93,7 +93,10 @@ export default function QuestionsPage() {
   );
 
   useEffect(() => {
-    fetchQuestions();
+    const t = setTimeout(() => {
+      void fetchQuestions();
+    }, 0);
+    return () => clearTimeout(t);
   }, [fetchQuestions]);
 
   const deleteQuestion = async (id: string) => {

@@ -3,14 +3,20 @@ import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
 
+function escapeRegex(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // GET all questions (admin view with answers)
 export async function GET(request: Request) {
   const guard = await requireAdmin();
   if (!guard.authorized) return guard.response;
 
   const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const rawPage = parseInt(searchParams.get("page") || "1", 10);
+  const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
+  const limit = Number.isFinite(rawLimit) ? Math.min(200, Math.max(1, rawLimit)) : 20;
   const topic = searchParams.get("topic");
   const subTopic = searchParams.get("subTopic");
   const exam = searchParams.get("exam");
@@ -26,9 +32,10 @@ export async function GET(request: Request) {
   if (verified === "true") filter.isVerified = true;
   if (verified === "false") filter.isVerified = false;
   if (search) {
+    const s = escapeRegex(search.slice(0, 64));
     filter.$or = [
-      { "text.en": { $regex: search, $options: "i" } },
-      { "text.ml": { $regex: search, $options: "i" } },
+      { "text.en": { $regex: s, $options: "i" } },
+      { "text.ml": { $regex: s, $options: "i" } },
     ];
   }
 

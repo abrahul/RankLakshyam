@@ -15,16 +15,21 @@ export async function GET(request: Request) {
     const subTopic = searchParams.get("subTopic");
     const exam = searchParams.get("exam");
     const difficulty = searchParams.get("difficulty");
-    const limit = parseInt(searchParams.get("limit") || "20", 10);
-    const page = parseInt(searchParams.get("page") || "1", 10);
+    const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
+    const rawPage = parseInt(searchParams.get("page") || "1", 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 20;
+    const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
 
     await connectDB();
 
     const filter: Record<string, unknown> = { isVerified: true };
-    if (topic) filter.topicId = topic;
-    if (subTopic) filter.subTopic = subTopic;
-    if (exam) filter.examTags = exam; // MongoDB matches if array contains value
-    if (difficulty) filter.difficulty = parseInt(difficulty, 10);
+    if (topic && topic.length <= 64) filter.topicId = topic;
+    if (subTopic && subTopic.length <= 64) filter.subTopic = subTopic;
+    if (exam && exam.length <= 32) filter.examTags = exam; // MongoDB matches if array contains value
+    if (difficulty) {
+      const d = parseInt(difficulty, 10);
+      if (Number.isFinite(d) && d >= 1 && d <= 5) filter.difficulty = d;
+    }
 
     const skip = (page - 1) * limit;
     const [questions, total] = await Promise.all([
