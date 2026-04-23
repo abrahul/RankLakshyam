@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface MilestoneCelebrationProps {
   type: "toast" | "confetti" | "fullscreen";
@@ -19,7 +19,9 @@ export default function MilestoneCelebration({
   onDismiss,
   onClose,
 }: MilestoneCelebrationProps) {
-  const dismiss = onDismiss ?? onClose ?? (() => {});
+  const dismiss = useCallback(() => {
+    (onDismiss ?? onClose)?.();
+  }, [onDismiss, onClose]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

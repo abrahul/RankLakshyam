@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface StatsData {
   overview: {
@@ -32,8 +32,13 @@ const TOPIC_LABELS: Record<string, string> = {
 export default function AdminDashboard() {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const didFetch = useRef(false);
 
   useEffect(() => {
+    // Avoid double-fetch in React Strict Mode (dev).
+    if (didFetch.current) return;
+    didFetch.current = true;
+
     fetch("/api/admin/stats")
       .then((r) => r.json())
       .then((d) => { if (d.success) setData(d.data); })
