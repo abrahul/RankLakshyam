@@ -260,6 +260,18 @@ export default function TopicPracticeClient({
   }
 
   const current = questions[currentIndex];
+  if (!current) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-dvh px-6 text-center">
+        <span className="text-4xl mb-4">😕</span>
+        <h2 className="text-xl font-bold text-white mb-2">Practice</h2>
+        <p className="text-surface-200/60 mb-6">This session looks out of sync. Please start again.</p>
+        <Link href="/practice" className="px-6 py-3 rounded-xl gradient-primary text-white font-semibold">
+          Back to Practice
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh px-4 pt-6 pb-24 animate-fade-in">
@@ -303,32 +315,44 @@ export default function TopicPracticeClient({
       </div>
 
       <div className="space-y-3 mb-4">
-        {current.options.map((opt) => {
-          const isSelected = selectedOption === opt.key;
-          const isCorrect = result?.correctOption === opt.key;
-          const isWrongSelected = !!result && isSelected && !isCorrect;
+        {current.options.map((opt, idx) => {
+          const fallbackKey = ["A", "B", "C", "D"][idx] || "A";
+          const optionKey =
+            (typeof (opt as unknown as { key?: unknown }).key === "string"
+              ? ((opt as unknown as { key: string }).key || fallbackKey).toUpperCase()
+              : fallbackKey);
+
+          let stateClass = "";
+          if (result) {
+            if (optionKey === result.correctOption) stateClass = "correct animate-correct-pop";
+            else if (optionKey === selectedOption && !result.isCorrect) stateClass = "wrong animate-wrong-shake";
+          } else if (optionKey === selectedOption) {
+            stateClass = "selected";
+          }
 
           return (
             <button
-              key={opt.key}
+              key={`${optionKey}-${idx}`}
               type="button"
               disabled={!!result}
-              onClick={() => setSelectedOption(opt.key)}
-              className={[
-                "w-full text-left glass-card-light p-4 rounded-xl transition-all",
-                isSelected ? "border-primary-400/40" : "",
-                isCorrect && result ? "border-success-500/50 bg-success-500/10" : "",
-                isWrongSelected ? "border-danger-500/50 bg-danger-500/10" : "",
-              ].join(" ")}
+              onClick={() => !result && setSelectedOption(optionKey)}
+              className={`option-btn w-full p-4 text-left flex items-start gap-3 ${stateClass}`}
             >
-              <div className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-900/30 text-sm font-bold text-surface-200/70">
-                  {opt.key}
-                </div>
-                <div className="flex-1">
-                  {lang !== "ml" ? <p className="text-white">{opt.en}</p> : null}
-                  {lang !== "en" ? <p className="text-surface-200/70">{opt.ml}</p> : null}
-                </div>
+              <span
+                className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                  stateClass === "correct" ? "bg-success-500/30 text-success-500" :
+                  stateClass.includes("wrong") ? "bg-error-500/30 text-error-500" :
+                  stateClass === "selected" ? "bg-primary-500/30 text-primary-400" :
+                  "bg-white/5 text-surface-200/60"
+                }`}
+              >
+                {result && optionKey === result.correctOption ? "✓" :
+                 result && optionKey === selectedOption && !result.isCorrect ? "✕" :
+                 optionKey}
+              </span>
+              <div className="flex-1">
+                {lang !== "ml" ? <p className="text-white text-sm font-medium">{opt.en}</p> : null}
+                {lang !== "en" ? <p className="text-surface-200/50 text-xs mt-0.5">{opt.ml}</p> : null}
               </div>
             </button>
           );
@@ -375,4 +399,3 @@ export default function TopicPracticeClient({
     </div>
   );
 }
-

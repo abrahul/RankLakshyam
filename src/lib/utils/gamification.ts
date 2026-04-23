@@ -151,7 +151,9 @@ export interface BadgeCheckContext {
   todayScore?: number;
   avgTimeSec?: number;
   consecutivePerfects?: number;
-  topicAccuracy?: Map<string, { attempted: number; correct: number; accuracy: number }>;
+  topicAccuracy?:
+    | Map<string, { attempted: number; correct: number; accuracy: number }>
+    | Record<string, { attempted: number; correct: number; accuracy: number }>;
   completionHour?: number; // 0-23
   isRecovery?: boolean;
   existingBadges: string[];
@@ -207,7 +209,23 @@ export function checkNewBadges(ctx: BadgeCheckContext): string[] {
 
   // Topic mastery
   if (ctx.topicAccuracy) {
-    for (const [topicId, stats] of ctx.topicAccuracy.entries()) {
+    const topicAccuracyAny = ctx.topicAccuracy as unknown as {
+      entries?: () => Iterable<[string, { attempted: number; correct: number; accuracy: number }]>;
+      get?: (key: string) => { attempted: number; correct: number; accuracy: number } | undefined;
+      [key: string]: unknown;
+    };
+
+    const entries: Array<[string, { attempted: number; correct: number; accuracy: number }]> =
+      typeof topicAccuracyAny.entries === "function"
+        ? Array.from(topicAccuracyAny.entries())
+        : Object.entries(ctx.topicAccuracy as Record<string, { attempted: number; correct: number; accuracy: number }>);
+
+    const getStats = (topicId: string) => {
+      if (typeof topicAccuracyAny.get === "function") return topicAccuracyAny.get(topicId);
+      return (ctx.topicAccuracy as Record<string, { attempted: number; correct: number; accuracy: number }>)[topicId];
+    };
+
+    for (const [topicId, stats] of entries) {
       const badgeId = TOPIC_BADGE_MAP[topicId];
       if (badgeId && stats.attempted >= 100 && stats.accuracy >= 80) {
         earn(badgeId);
@@ -217,7 +235,7 @@ export function checkNewBadges(ctx: BadgeCheckContext): string[] {
     // All-rounder
     const allTopics = Object.keys(TOPIC_BADGE_MAP);
     const allHave50 = allTopics.every((t) => {
-      const s = ctx.topicAccuracy!.get(t);
+      const s = getStats(t);
       return s && s.attempted >= 50;
     });
     if (allHave50) earn("all_rounder");

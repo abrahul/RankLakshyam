@@ -55,7 +55,7 @@ export async function GET() {
     verifiedQuestions,
     totalAttempts,
     todaySessions,
-    recentUsers,
+    recentUsersRaw,
     topicCounts,
     dailyChallenge,
   ] = await Promise.all([
@@ -71,6 +71,22 @@ export async function GET() {
     ]),
     DailyChallenge.findOne({ date: today }).lean(),
   ]);
+
+  const recentUsers = (recentUsersRaw as Array<{
+    _id: { toString: () => string };
+    name: string;
+    email: string;
+    image?: string;
+    createdAt: Date;
+    stats?: { totalXP?: number };
+  }>).map((u) => ({
+    _id: u._id.toString(),
+    name: u.name,
+    email: u.email,
+    image: u.image,
+    createdAt: u.createdAt.toISOString(),
+    stats: { totalXP: u.stats?.totalXP || 0 },
+  }));
 
   const payload: StatsResponse = {
     success: true,
