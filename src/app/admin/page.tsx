@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 interface StatsData {
@@ -78,6 +79,15 @@ export default function AdminDashboard() {
           value={overview.hasDailyChallenge ? "Active" : "Not Set"}
           color={overview.hasDailyChallenge ? "text-success-500" : "text-error-500"}
         />
+      </div>
+
+      <div className="flex justify-end">
+        <Link
+          href="/admin/daily-challenge"
+          className="px-4 py-2 rounded-xl glass-card-light text-sm font-semibold text-surface-200/70 hover:text-surface-200 hover:border-white/20 transition-all"
+        >
+          Set / Regenerate Daily Challenge â†’
+        </Link>
       </div>
 
       {/* Topic Breakdown + Recent Users */}

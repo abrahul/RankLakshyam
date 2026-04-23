@@ -6,6 +6,7 @@ import Question from "@/lib/db/models/Question";
 import TestSession from "@/lib/db/models/TestSession";
 import { getTodayIST } from "@/lib/utils/scoring";
 import mongoose from "mongoose";
+import { buildWeightedDailyChallengeQuestionIds } from "@/lib/daily-challenge/generate";
 
 // ─── Content Strategy: Topic weights & difficulty curve ───────────────────────
 const TOPIC_WEIGHTS: Record<string, number> = {
@@ -146,7 +147,7 @@ export async function GET() {
 
     // If no challenge exists for today, generate one using weighted topic + difficulty curve
     if (!challenge) {
-      const questionIds = await buildWeightedChallenge();
+      const questionIds = await buildWeightedDailyChallengeQuestionIds();
 
       if (questionIds.length === 0) {
         return NextResponse.json(
