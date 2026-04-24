@@ -13,6 +13,7 @@ export type CategorizationResult = {
 
 type CompiledExamIndex = {
   codeToExam: Map<string, { level: PscLevel; exam: string }>;
+  examToCode: Map<string, string>;
   exams: Array<{ level: PscLevel; exam: string; code: string; norm: string; tokens: string[] }>;
   tokenToExamIdx: Map<string, number[]>;
   defaultExamByLevel: Record<PscLevel, { level: PscLevel; exam: string }>;
@@ -55,12 +56,14 @@ function buildCompiledIndex(): CompiledExamIndex {
   const index = examIndex as unknown as ExamIndex;
 
   const codeToExam = new Map<string, { level: PscLevel; exam: string }>();
+  const examToCode = new Map<string, string>();
   const exams: Array<{ level: PscLevel; exam: string; code: string; norm: string; tokens: string[] }> = [];
 
   for (const level of Object.keys(index) as PscLevel[]) {
     for (const entry of index[level]) {
       const code = padCode(entry.code) ?? entry.code;
       codeToExam.set(code, { level, exam: entry.exam });
+      examToCode.set(`${level}||${entry.exam}`, code);
       const norm = normalizeText(entry.exam);
       const tokens = tokenize(norm);
       exams.push({ level, exam: entry.exam, code, norm, tokens });
@@ -89,7 +92,7 @@ function buildCompiledIndex(): CompiledExamIndex {
     {} as Record<PscLevel, { level: PscLevel; exam: string }>
   );
 
-  return { codeToExam, exams, tokenToExamIdx, defaultExamByLevel, anyExam };
+  return { codeToExam, examToCode, exams, tokenToExamIdx, defaultExamByLevel, anyExam };
 }
 
 function getIndex() {
@@ -198,4 +201,13 @@ export function categorizePscQuestion(input: CategorizeQuestionInput): Categoriz
   }
 
   return { level, exam, confidence: 0.35 };
+}
+
+export type CategorizationResultWithCode = CategorizationResult & { examCode: string };
+
+export function categorizePscQuestionWithCode(input: CategorizeQuestionInput): CategorizationResultWithCode {
+  const base = categorizePscQuestion(input);
+  const idx = getIndex();
+  const examCode = idx.examToCode.get(`${base.level}||${base.exam}`) || "";
+  return { ...base, examCode };
 }

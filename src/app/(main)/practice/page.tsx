@@ -23,13 +23,19 @@ type PscLevel = "10th_level" | "plus2_level" | "degree_level" | "other_exams";
 type CategoryId = PscLevel | "all";
 type PscExamEntry = { exam: string; code: string; level?: PscLevel };
 
-const CATEGORIES: Array<{ id: CategoryId; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "10th_level", label: "10th" },
-  { id: "plus2_level", label: "12th" },
-  { id: "degree_level", label: "Degree" },
-  { id: "other_exams", label: "Others" },
-];
+type LevelRow = {
+  _id: string;
+  name: PscLevel;
+  displayName?: { en?: string; ml?: string };
+  sortOrder: number;
+};
+
+function shortLevelLabel(level: PscLevel) {
+  if (level === "10th_level") return "10th";
+  if (level === "plus2_level") return "12th";
+  if (level === "degree_level") return "Degree";
+  return "Others";
+}
 
 function mapTargetExamToLevel(targetExam: string): CategoryId {
   const t = (targetExam || "").toLowerCase();
@@ -44,6 +50,7 @@ export default function PracticePage() {
   const userExam = (session?.user as { targetExam?: string })?.targetExam || "";
 
   const [topics, setTopics] = useState<TopicData[]>([]);
+  const [levels, setLevels] = useState<LevelRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [pscLevel, setPscLevel] = useState<CategoryId>(() => mapTargetExamToLevel(userExam));
@@ -61,43 +68,45 @@ export default function PracticePage() {
   }, [userExam]);
 
   useEffect(() => {
-    async function fetchTopics() {
+    async function fetchInitial() {
       try {
-        const res = await fetch("/api/topics");
-        const data = await res.json();
-        if (data.success) setTopics(data.data);
+        const [topicsRes, levelsRes] = await Promise.all([fetch("/api/topics"), fetch("/api/levels")]);
+        const topicsData = await topicsRes.json();
+        const levelsData = await levelsRes.json();
+        if (topicsData.success) setTopics(topicsData.data);
+        if (levelsData.success) setLevels(levelsData.data || []);
       } catch {
         /* silent */
       } finally {
         setLoading(false);
       }
     }
-    fetchTopics();
+    fetchInitial();
   }, []);
 
   useEffect(() => {
     async function fetchExams() {
       try {
-        const url = pscLevel === "all" ? "/api/psc/exams" : `/api/psc/exams?level=${pscLevel}`;
+        const url = pscLevel === "all" ? "/api/exams" : `/api/exams?level=${pscLevel}`;
         const res = await fetch(url);
         const data = await res.json();
-
         if (!data.success) {
           setLevelExams([]);
           return;
         }
 
-        if (pscLevel !== "all" && data.data?.exams) {
-          setLevelExams(data.data.exams);
-          return;
-        }
-
-        const idx = data.data as Partial<Record<PscLevel, Array<{ exam: string; code: string }>>>;
-        const flattened: PscExamEntry[] = [];
-        (["10th_level", "plus2_level", "degree_level", "other_exams"] as PscLevel[]).forEach((lvl) => {
-          (idx?.[lvl] ?? []).forEach((e) => flattened.push({ ...e, level: lvl }));
-        });
-        setLevelExams(flattened);
+        const list = Array.isArray(data.data) ? data.data : [];
+        const mapped: PscExamEntry[] = list
+          .map((raw: unknown) => {
+            const e = raw as { name?: unknown; code?: unknown; levelId?: unknown };
+            const levelId = e.levelId as { name?: unknown } | undefined;
+            return {
+              exam: typeof e.name === "string" ? e.name : String(e.name || ""),
+              code: typeof e.code === "string" ? e.code : String(e.code || ""),
+              level: typeof levelId?.name === "string" ? (levelId.name as PscLevel) : undefined,
+            };
+          });
+        setLevelExams(mapped.filter((e) => e.exam));
       } catch {
         setLevelExams([]);
       }
@@ -122,6 +131,14 @@ export default function PracticePage() {
     return q;
   }, [pscLevel, pscExam]);
 
+  const categories = useMemo(() => {
+    const sorted = [...levels].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    return [
+      { id: "all" as const, label: "All" },
+      ...sorted.map((l) => ({ id: l.name, label: shortLevelLabel(l.name) })),
+    ];
+  }, [levels]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60dvh]">
@@ -141,7 +158,7 @@ export default function PracticePage() {
       <div className="mb-5">
         <div className="flex flex-col gap-3">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setPscLevel(c.id)}
@@ -313,21 +330,42 @@ export default function PracticePage() {
             )}
           </div>
         ))}
+        <Link
+          href={{
+            pathname: "/practice/pyq",
+            query: pscLevel !== "all" ? { level: pscLevel } : {},
+          }}
+        >
+          <div className="glass-card-light p-4 text-center topic-card transition-all hover:border-white/20">
+            <span className="text-2xl block mb-2">🗂️</span>
+            <p className="text-sm font-semibold text-white">Browse</p>
+            <p className="text-xs text-surface-200/40">All papers</p>
+          </div>
+        </Link>
       </div>
 
       {/* Previous Year Papers — now uses Level hierarchy */}
       <h2 className="text-lg font-bold text-white mt-8 mb-3">Previous Year Papers</h2>
       <div className="grid grid-cols-2 gap-3">
-        {CATEGORIES.filter((c) => c.id !== "all").map((cat) => (
-          <Link key={cat.id} href={`/practice/pyq?level=${cat.id}`}>
+        {levelExams.slice(0, 3).map((ex) => (
+          <Link
+            key={`${ex.code}-${ex.exam}`}
+            href={{
+              pathname: "/practice/pyq",
+              query: {
+                ...(pscLevel !== "all" ? { level: pscLevel } : ex.level ? { level: ex.level } : {}),
+                exam: ex.exam,
+              },
+            }}
+          >
             <div
               className={`glass-card-light p-4 text-center topic-card transition-all ${
-                pscLevel === cat.id ? "border-primary-400/30" : ""
+                pscExam === ex.exam ? "border-primary-400/30" : ""
               }`}
             >
               <span className="text-2xl block mb-2">📋</span>
-              <p className="text-sm font-semibold text-white">{cat.label}</p>
-              <p className="text-xs text-surface-200/40">Previous years</p>
+              <p className="text-sm font-semibold text-white line-clamp-2">{ex.exam}</p>
+              <p className="text-xs text-surface-200/40">{ex.code}</p>
             </div>
           </Link>
         ))}

@@ -1,4 +1,4 @@
-export type ExamType = "ldc" | "lgs" | "degree" | "police";
+export type ExamType = "10th Level" | "12th Level" | "Degree" | "Others";
 export type Language = "en" | "ml" | "both";
 export type SessionType = "daily" | "topic" | "pyq" | "custom" | "weak_area";
 export type SessionStatus = "in_progress" | "completed" | "abandoned";

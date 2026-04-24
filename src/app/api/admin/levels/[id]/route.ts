@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Level from "@/lib/db/models/Level";
+import Exam from "@/lib/db/models/Exam";
 
 // PUT /api/admin/levels/[id]
 export async function PUT(
@@ -51,6 +52,20 @@ export async function DELETE(
     const { id } = await params;
 
     await connectDB();
+    const hasExams = await Exam.exists({ levelId: id });
+    if (hasExams) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "HAS_EXAMS",
+            message: "Cannot delete this category while it still has exams. Delete/move exams first.",
+            statusCode: 400,
+          },
+        },
+        { status: 400 }
+      );
+    }
     const deleted = await Level.findByIdAndDelete(id);
 
     if (!deleted) {

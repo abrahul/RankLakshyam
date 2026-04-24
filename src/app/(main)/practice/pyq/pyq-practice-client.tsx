@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -24,33 +24,156 @@ interface AttemptResult {
   explanation: { en: string; ml: string };
   isComplete: boolean;
   progress: { current: number; total: number; correctCount: number };
-  xp?: { totalXP: number; baseXP: number; correctBonus: number; speedBonus: number; perfectBonus: number; streakBonus: number };
+  xp?: {
+    totalXP: number;
+    baseXP: number;
+    correctBonus: number;
+    speedBonus: number;
+    perfectBonus: number;
+    streakBonus: number;
+  };
   streak?: { currentStreak: number; longestStreak: number };
   gamification?: {
     newBadges?: Array<{ id: string; name: string; icon: string; rarity: string }>;
-    milestone?: { title: string; badgeIcon: string; bonusXP: number; celebration: "toast" | "confetti" | "fullscreen" };
-    rankUp?: { from: { title: { en: string }; icon: string }; to: { title: { en: string }; icon: string; color: string } };
+    milestone?: {
+      title: string;
+      badgeIcon: string;
+      bonusXP: number;
+      celebration: "toast" | "confetti" | "fullscreen";
+    };
+    rankUp?: {
+      from: { title: { en: string }; icon: string };
+      to: { title: { en: string }; icon: string; color: string };
+    };
   };
 }
 
-const EXAMS: Array<{ id: string; label: string; icon: string }> = [
-  { id: "ldc", label: "LDC", icon: "📋" },
-  { id: "lgs", label: "LGS", icon: "🗂️" },
-  { id: "degree", label: "Degree", icon: "🎓" },
-  { id: "police", label: "Police", icon: "👮" },
+type PscLevel = "10th_level" | "plus2_level" | "degree_level" | "other_exams";
+type CategoryId = PscLevel | "all";
+type PscExamEntry = { exam: string; code: string; level?: PscLevel };
+
+type LevelRow = {
+  _id: string;
+  name: PscLevel;
+  displayName?: { en?: string; ml?: string };
+  sortOrder: number;
+};
+
+const DEFAULT_CATEGORIES: Array<{ id: CategoryId; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "10th_level", label: "10th" },
+  { id: "plus2_level", label: "12th" },
+  { id: "degree_level", label: "Degree" },
+  { id: "other_exams", label: "Others" },
 ];
 
-export default function PyqPracticeClient({ exam: examProp, year }: { exam: string; year: string }) {
+function isPscLevel(value: string): value is PscLevel {
+  return value === "10th_level" || value === "plus2_level" || value === "degree_level" || value === "other_exams";
+}
+
+export default function PyqPracticeClient({
+  level: levelProp,
+  exam: examProp,
+  year,
+}: {
+  level: string;
+  exam: string;
+  year: string;
+}) {
   const router = useRouter();
 
-  const examRaw = (examProp || "").toLowerCase();
-  const exam = examRaw === "degree_level" ? "degree" : examRaw;
+  const level = (levelProp || "").trim();
+  const exam = (examProp || "").trim();
 
-  const examLabel = useMemo(() => {
-    const found = EXAMS.find((e) => e.id === exam);
-    if (!found) return "PYQ";
-    return found.label;
+  const examLabel = useMemo(() => exam || "PYQ", [exam]);
+
+  // Picker state (used when no exam selected)
+  const [levels, setLevels] = useState<LevelRow[]>([]);
+  const [levelFilter, setLevelFilter] = useState<CategoryId>(() => (isPscLevel(level) ? level : "all"));
+  const [levelExams, setLevelExams] = useState<PscExamEntry[]>([]);
+  const [examQuery, setExamQuery] = useState<string>(exam);
+  const [examOpen, setExamOpen] = useState(false);
+  const blurCloseTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (exam) setExamQuery(exam);
   }, [exam]);
+
+  useEffect(() => {
+    if (isPscLevel(level)) setLevelFilter(level);
+  }, [level]);
+
+  useEffect(() => {
+    fetch("/api/levels")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setLevels(d.data || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  const categories = useMemo(() => {
+    if (!levels.length) return DEFAULT_CATEGORIES;
+    const sorted = [...levels].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    return [
+      { id: "all" as const, label: "All" },
+      ...sorted.map((l) => ({
+        id: l.name,
+        label:
+          l.name === "10th_level"
+            ? "10th"
+            : l.name === "plus2_level"
+              ? "12th"
+              : l.name === "degree_level"
+                ? "Degree"
+                : "Others",
+      })),
+    ];
+  }, [levels]);
+
+  useEffect(() => {
+    async function fetchExams() {
+      try {
+        const url = levelFilter === "all" ? "/api/exams" : `/api/exams?level=${levelFilter}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.success) {
+          setLevelExams([]);
+          return;
+        }
+
+        const list = Array.isArray(data.data) ? data.data : [];
+        const mapped: PscExamEntry[] = list.map((raw: unknown) => {
+          const e = raw as { name?: unknown; code?: unknown; levelId?: unknown };
+          const levelId = e.levelId as { name?: unknown } | undefined;
+          return {
+            exam: typeof e.name === "string" ? e.name : String(e.name || ""),
+            code: typeof e.code === "string" ? e.code : String(e.code || ""),
+            level: typeof levelId?.name === "string" ? (levelId.name as PscLevel) : undefined,
+          };
+        });
+        setLevelExams(mapped.filter((e) => e.exam));
+      } catch {
+        setLevelExams([]);
+      }
+    }
+    fetchExams();
+  }, [levelFilter]);
+
+  const examSuggestions = useMemo(() => {
+    const q = examQuery.trim().toUpperCase();
+    if (q.length < 2) return [];
+    const matches = levelExams.filter((e) => `${e.exam} ${e.code} ${e.level ?? ""}`.toUpperCase().includes(q));
+    return matches.slice(0, 30);
+  }, [examQuery, levelExams]);
+
+  const pickExam = (picked: { level?: string; exam: string }) => {
+    const sp = new URLSearchParams();
+    if (picked.level && picked.level !== "all") sp.set("level", picked.level);
+    sp.set("exam", picked.exam);
+    if (year) sp.set("year", year);
+    router.push(`/practice/pyq?${sp.toString()}`);
+  };
 
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -90,6 +213,7 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
         const url = new URL("/api/pyq", window.location.origin);
         url.searchParams.set("exam", exam);
         url.searchParams.set("limit", "20");
+        if (level && isPscLevel(level)) url.searchParams.set("level", level);
         if (year) url.searchParams.set("year", year);
 
         const res = await fetch(url.toString());
@@ -116,7 +240,11 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
           body: JSON.stringify({
             type: "pyq",
             questionIds: q.map((qq) => qq._id),
-            context: { pyqExam: exam, ...(year ? { pyqYear: parseInt(year, 10) } : {}) },
+            context: {
+              level: isPscLevel(level) ? level : undefined,
+              exam,
+              ...(year ? { pyqYear: parseInt(year, 10) } : {}),
+            },
           }),
         });
         const sessionData = await sessionRes.json();
@@ -147,7 +275,7 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
     setQuestions([]);
 
     loadPyqPractice();
-  }, [exam, year]);
+  }, [exam, year, level]);
 
   const submitAnswer = useCallback(async () => {
     if (!selectedOption || !sessionId || submitting) return;
@@ -168,9 +296,7 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
       const data = await res.json();
       if (data.success) {
         setResult(data.data);
-        if (data.data.isComplete) {
-          setFinalResult(data.data);
-        }
+        if (data.data.isComplete) setFinalResult(data.data);
       }
     } catch {
       // Silent fail - user can retry
@@ -217,18 +343,95 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
         <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-display)] mb-1">
           Previous Year Papers
         </h1>
-        <p className="text-sm text-surface-200/60 mb-6">Choose an exam</p>
+        <p className="text-sm text-surface-200/60 mb-5">Pick a category and search an exam</p>
 
-        <div className="grid grid-cols-2 gap-3">
-          {EXAMS.map((e) => (
-            <Link key={e.id} href={`/practice/pyq?exam=${e.id}`}>
-              <div className="glass-card-light p-4 text-center topic-card">
-                <span className="text-2xl block mb-2">{e.icon}</span>
-                <p className="text-sm font-semibold text-white">{e.label}</p>
-                <p className="text-xs text-surface-200/40">PYQ practice</p>
+        <div className="mb-5">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setLevelFilter(c.id)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  levelFilter === c.id
+                    ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
+                    : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative mt-3">
+            <input
+              value={examQuery}
+              onChange={(e) => {
+                setExamQuery(e.target.value);
+                setExamOpen(true);
+              }}
+              onFocus={() => {
+                if (blurCloseTimer.current) window.clearTimeout(blurCloseTimer.current);
+                setExamOpen(true);
+              }}
+              onBlur={() => {
+                blurCloseTimer.current = window.setTimeout(() => setExamOpen(false), 120);
+              }}
+              placeholder="Search exam name or code (e.g., 117/21)"
+              className="w-full px-3 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-surface-200/30 focus:border-primary-400/50 focus:outline-none"
+            />
+
+            {examQuery && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setExamQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-lg text-xs bg-white/5 text-surface-200/60 hover:bg-white/10"
+              >
+                Clear
+              </button>
+            )}
+
+            {examOpen && (examSuggestions.length > 0 || examQuery.trim().length >= 2) && (
+              <div className="absolute z-20 mt-2 w-full rounded-2xl overflow-hidden border border-white/10 bg-slate-950/95 shadow-xl">
+                {examSuggestions.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-surface-200/40">No matches</div>
+                ) : (
+                  <div className="max-h-72 overflow-auto">
+                    {examSuggestions.map((ex) => (
+                      <button
+                        key={`${ex.level ?? "x"}-${ex.code}-${ex.exam}`}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickExam({ level: levelFilter !== "all" ? levelFilter : ex.level, exam: ex.exam })}
+                        className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors"
+                      >
+                        <div className="text-sm text-white leading-snug">{ex.exam}</div>
+                        <div className="text-[11px] text-surface-200/50">
+                          {ex.code}
+                          {levelFilter === "all" && ex.level ? ` • ${ex.level.replaceAll("_", " ")}` : ""}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </Link>
-          ))}
+            )}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {levelExams.slice(0, 6).map((ex) => (
+              <button
+                key={`${ex.level ?? "x"}-${ex.code}-${ex.exam}`}
+                type="button"
+                onClick={() => pickExam({ level: levelFilter !== "all" ? levelFilter : ex.level, exam: ex.exam })}
+                className="glass-card-light p-3 text-left hover:border-white/20 transition-all"
+              >
+                <p className="text-sm font-semibold text-white line-clamp-2">{ex.exam}</p>
+                <p className="text-xs text-surface-200/40 mt-1">{ex.code}</p>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -268,7 +471,7 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
           >
             ← Back
           </button>
-          <span className="text-xs text-surface-200/40">{examLabel} PYQ</span>
+          <span className="text-xs text-surface-200/40">{examLabel}</span>
         </div>
 
         <div className="glass-card p-6 text-center">
@@ -307,18 +510,24 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
   if (!current) {
     return (
       <div className="flex flex-col items-center justify-center min-h-dvh px-6 text-center">
-        <span className="text-4xl mb-4">😕</span>
-        <h2 className="text-xl font-bold text-white mb-2">{examLabel} PYQ</h2>
-        <p className="text-surface-200/60 mb-6">This session looks out of sync. Please start again.</p>
-        <Link href="/practice/pyq" className="px-6 py-3 rounded-xl gradient-primary text-white font-semibold">
-          Choose Exam
-        </Link>
+        <p className="text-surface-200/60 mb-6">No question found.</p>
+        <button
+          type="button"
+          onClick={() => router.push("/practice")}
+          className="px-6 py-3 rounded-xl gradient-primary text-white font-semibold"
+        >
+          Back to Practice
+        </button>
       </div>
     );
   }
 
+  const questionText =
+    lang === "en" ? current.text.en : lang === "ml" ? current.text.ml : `${current.text.en}\n\n${current.text.ml || ""}`.trim();
+
   return (
     <div className="min-h-dvh px-4 pt-6 pb-24 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button
           type="button"
@@ -327,114 +536,119 @@ export default function PyqPracticeClient({ exam: examProp, year }: { exam: stri
         >
           ← Back
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setLang((l) => (l === "both" ? "en" : l === "en" ? "ml" : "both"))}
-            className="glass-card-light px-3 py-1.5 text-xs font-semibold text-surface-200/70 hover:text-surface-200 transition-all"
-            aria-label="Toggle language"
-          >
-            {lang === "both" ? "EN+ML" : lang.toUpperCase()}
-          </button>
-          <span className="text-xs text-surface-200/40">{examLabel} PYQ</span>
-        </div>
-      </div>
-
-      <div className="glass-card p-5 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs text-surface-200/60">
-            Question {currentIndex + 1} / {questions.length}
+        <div className="text-right">
+          <p className="text-xs text-surface-200/40">{examLabel}</p>
+          <p className="text-[10px] text-surface-200/30">
+            Q {currentIndex + 1} / {questions.length}
           </p>
-          <p className="text-xs text-surface-200/50">{timer}s</p>
-        </div>
-
-        <div className="space-y-1.5">
-          {lang !== "ml" ? <p className="text-white font-semibold leading-relaxed">{current.text.en}</p> : null}
-          {lang !== "en" ? <p className="text-surface-200/80 leading-relaxed">{current.text.ml}</p> : null}
         </div>
       </div>
 
-      <div className="space-y-3 mb-4">
-        {current.options.map((opt, idx) => {
-          const fallbackKey = ["A", "B", "C", "D"][idx] || "A";
-          const optionKey =
-            (typeof (opt as unknown as { key?: unknown }).key === "string"
-              ? ((opt as unknown as { key: string }).key || fallbackKey).toUpperCase()
-              : fallbackKey);
+      {/* Language toggle */}
+      <div className="flex gap-2 mb-4">
+        {[
+          { id: "both", label: "EN+ML" },
+          { id: "en", label: "EN" },
+          { id: "ml", label: "ML" },
+        ].map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => setLang(l.id as "en" | "ml" | "both")}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              lang === l.id
+                ? "bg-white/10 text-white border border-white/15"
+                : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
+            }`}
+          >
+            {l.label}
+          </button>
+        ))}
+      </div>
 
-          let stateClass = "";
-          if (result) {
-            if (optionKey === result.correctOption) stateClass = "correct animate-correct-pop";
-            else if (optionKey === selectedOption && !result.isCorrect) stateClass = "wrong animate-wrong-shake";
-          } else if (optionKey === selectedOption) {
-            stateClass = "selected";
-          }
+      {/* Question */}
+      <div className="glass-card p-5 mb-4">
+        <p className="text-sm text-white whitespace-pre-line leading-relaxed">{questionText}</p>
 
-          return (
-            <button
-              key={`${optionKey}-${idx}`}
-              type="button"
-              disabled={!!result}
-              onClick={() => !result && setSelectedOption(optionKey)}
-              className={`option-btn w-full p-4 text-left flex items-start gap-3 ${stateClass}`}
-            >
-              <span
-                className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
-                  stateClass === "correct" ? "bg-success-500/30 text-success-500" :
-                  stateClass.includes("wrong") ? "bg-error-500/30 text-error-500" :
-                  stateClass === "selected" ? "bg-primary-500/30 text-primary-400" :
-                  "bg-white/5 text-surface-200/60"
-                }`}
+        <div className="mt-4 space-y-2">
+          {current.options.map((opt) => {
+            const key = opt.key;
+            const isSelected = selectedOption === key;
+            const isCorrect = result && key === result.correctOption;
+            const isWrong = result && isSelected && !result.isCorrect;
+
+            const base =
+              "w-full text-left p-4 rounded-xl border transition-all option-btn";
+            const cls = result
+              ? isCorrect
+                ? `${base} bg-success-500/20 border-success-500/50 text-success-200`
+                : isWrong
+                  ? `${base} bg-error-500/15 border-error-500/40 text-error-200`
+                  : `${base} bg-white/5 border-white/10 text-surface-200/70`
+              : isSelected
+                ? `${base} bg-primary-500/20 border-primary-400/40 text-white`
+                : `${base} bg-white/5 border-white/10 text-surface-200/70 hover:border-white/20`;
+
+            const optionText =
+              lang === "en" ? opt.en : lang === "ml" ? opt.ml : `${opt.en}\n${opt.ml || ""}`.trim();
+
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={!!result}
+                onClick={() => setSelectedOption(key)}
+                className={cls}
               >
-                {result && optionKey === result.correctOption ? "✓" :
-                 result && optionKey === selectedOption && !result.isCorrect ? "✕" :
-                 optionKey}
-              </span>
-              <div className="flex-1">
-                {lang !== "ml" ? <p className="text-white text-sm font-medium">{opt.en}</p> : null}
-                {lang !== "en" ? <p className="text-surface-200/50 text-xs mt-0.5">{opt.ml}</p> : null}
-              </div>
-            </button>
-          );
-        })}
+                <div className="flex items-start gap-3">
+                  <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {key}
+                  </span>
+                  <span className="text-sm whitespace-pre-line leading-relaxed">{optionText}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {result ? (
-        <div className="glass-card p-5 mb-4 animate-fade-in">
-          <div className="flex items-center justify-between mb-2">
-            <p className={`text-sm font-bold ${result.isCorrect ? "text-success-500" : "text-danger-500"}`}>
-              {result.isCorrect ? "Correct" : "Wrong"}
-            </p>
-            <p className="text-xs text-surface-200/50">
-              {result.progress.current}/{result.progress.total} • {result.progress.correctCount} correct
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            {lang !== "ml" ? <p className="text-surface-200/80 text-sm">{result.explanation.en}</p> : null}
-            {lang !== "en" ? <p className="text-surface-200/70 text-sm">{result.explanation.ml}</p> : null}
-          </div>
-        </div>
-      ) : null}
+      {/* Actions */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled={!selectedOption || submitting || !!result}
+          onClick={() => void submitAnswer()}
+          className="flex-1 px-5 py-3 rounded-xl gradient-primary text-white font-semibold disabled:opacity-40"
+        >
+          {submitting ? "Submitting..." : result ? "Submitted" : "Submit"}
+        </button>
+        <button
+          type="button"
+          disabled={!result}
+          onClick={nextQuestion}
+          className="px-5 py-3 rounded-xl bg-white/5 text-white font-semibold border border-white/10 hover:border-white/20 disabled:opacity-40"
+        >
+          {result?.isComplete ? "Finish" : "Next"}
+        </button>
+      </div>
 
-      <div className="flex gap-3">
-        {!result ? (
-          <button
-            type="button"
-            disabled={!selectedOption || submitting}
-            onClick={submitAnswer}
-            className="flex-1 px-6 py-3 rounded-xl gradient-primary text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? "Checking..." : "Submit"}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={nextQuestion}
-            className="flex-1 px-6 py-3 rounded-xl gradient-primary text-white font-semibold"
-          >
-            {result.isComplete ? "Finish" : "Next →"}
-          </button>
-        )}
+      {/* Result */}
+      {result && (
+        <div className="glass-card-light p-4 mt-4">
+          <p className={`text-sm font-semibold ${result.isCorrect ? "text-success-400" : "text-error-400"}`}>
+            {result.isCorrect ? "Correct" : "Wrong"}
+          </p>
+          <p className="text-xs text-surface-200/50 mt-1">Correct option: {result.correctOption}</p>
+          {result.explanation?.en ? (
+            <p className="text-sm text-surface-200/70 mt-3 whitespace-pre-line">{result.explanation.en}</p>
+          ) : null}
+        </div>
+      )}
+
+      {/* Footer timer */}
+      <div className="mt-4 text-xs text-surface-200/40">
+        Time: {timer}s
+        {year ? ` • Year: ${year}` : ""}
       </div>
     </div>
   );

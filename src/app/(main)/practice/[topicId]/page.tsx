@@ -5,9 +5,9 @@ export default async function TopicPracticePage({
   searchParams,
 }: {
   params: Promise<{ topicId: string }>;
-  searchParams: Promise<{ subTopic?: string; exam?: string; pscLevel?: string; pscExam?: string }>;
+  searchParams: Promise<{ subTopic?: string; level?: string; exam?: string }>;
 }) {
   const { topicId } = await params;
-  const { subTopic, exam, pscLevel, pscExam } = await searchParams;
-  return <TopicPracticeClient topicId={topicId} subTopic={subTopic} exam={exam} pscLevel={pscLevel} pscExam={pscExam} />;
+  const { subTopic, level, exam } = await searchParams;
+  return <TopicPracticeClient topicId={topicId} subTopic={subTopic} level={level} exam={exam} />;
 }
