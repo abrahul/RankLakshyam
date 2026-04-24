@@ -13,9 +13,18 @@ type GeneratedQuestion = {
   subTopic: string;
   difficulty: number;
   questionStyle: "direct" | "concept" | "statement" | "negative" | "indirect";
-  examTags: string[];
+  level: string;
+  exam: string;
+  examCode: string;
   tags: string[];
 };
+
+const LEVELS = [
+  { id: "10th_level", label: "10th Level" },
+  { id: "plus2_level", label: "Plus Two" },
+  { id: "degree_level", label: "Degree" },
+  { id: "other_exams", label: "Others" },
+];
 
 const TOPICS = [
   { id: "history", label: "📖 History" },
@@ -34,7 +43,8 @@ export default function AdminAiGeneratePage() {
   const [topicHint, setTopicHint] = useState<string>("auto");
   const [difficultyHint, setDifficultyHint] = useState<string>("auto");
   const [styleHint, setStyleHint] = useState<string>("auto");
-  const [examTags, setExamTags] = useState<string[]>(["ldc"]);
+  const [level, setLevel] = useState<string>("10th_level");
+  const [exam, setExam] = useState<string>("");
   const [store, setStore] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -48,19 +58,16 @@ export default function AdminAiGeneratePage() {
       sourceText,
       sourceType,
       topicHint: topicHint === "auto" ? undefined : topicHint,
-      examTags,
+      level,
+      exam: exam || undefined,
       difficultyHint: difficultyHint === "auto" ? undefined : difficultyHint,
       styleHint: styleHint === "auto" ? undefined : styleHint,
       store,
     }),
-    [difficultyHint, examTags, sourceText, sourceType, store, styleHint, topicHint]
+    [difficultyHint, exam, level, sourceText, sourceType, store, styleHint, topicHint]
   );
 
-  const toggleExamTag = (tag: string) => {
-    setExamTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
+
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -184,23 +191,16 @@ export default function AdminAiGeneratePage() {
           </div>
         </div>
 
-        <div>
-          <label className="text-xs text-surface-200/60 font-semibold mb-2 block">Exam Tags</label>
-          <div className="flex flex-wrap gap-2">
-            {["ldc", "lgs", "degree", "police"].map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => toggleExamTag(tag)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${
-                  examTags.includes(tag)
-                    ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
-                    : "bg-white/5 text-surface-200/40 border border-white/10 hover:border-white/20"
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Level</label>
+            <select value={level} onChange={(e) => setLevel(e.target.value)} style={{ colorScheme: "dark" }} className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white">
+              {LEVELS.map((l) => (<option key={l.id} value={l.id}>{l.label}</option>))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Exam (optional)</label>
+            <input value={exam} onChange={(e) => setExam(e.target.value)} placeholder="e.g. LDC VARIOUS" className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none" />
           </div>
         </div>
 

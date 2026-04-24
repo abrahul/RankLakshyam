@@ -2,17 +2,29 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Topic from "@/lib/db/models/Topic";
+import SubTopic from "@/lib/db/models/SubTopic";
 import Question from "@/lib/db/models/Question";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated", statusCode: 401 } }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const levelId = searchParams.get("levelId");
+
     await connectDB();
-    const topics = await Topic.find({}).sort({ sortOrder: 1 });
+
+    const topicFilter: Record<string, unknown> = {};
+    if (levelId) topicFilter.levelId = levelId;
+
+    const topics = await Topic.find(topicFilter).sort({ sortOrder: 1 });
+
+    // Fetch all subtopics for the topics
+    const topicIds = topics.map((t) => t._id);
+    const subtopics = await SubTopic.find({ topicId: { $in: topicIds } }).sort({ sortOrder: 1 });
 
     // Per-topic and per-subtopic counts in one aggregate
     const counts = await Question.aggregate([
@@ -32,16 +44,24 @@ export async function GET() {
       }
     }
 
+    // Group subtopics by topicId
+    const subtopicsByTopic: Record<string, typeof subtopics> = {};
+    for (const st of subtopics) {
+      const tid = st.topicId;
+      if (!subtopicsByTopic[tid]) subtopicsByTopic[tid] = [];
+      subtopicsByTopic[tid].push(st);
+    }
+
     const topicsWithCounts = topics.map((t) => ({
       id: t._id,
       name: t.name,
       icon: t.icon,
       color: t.color,
-      examTags: t.examTags || [],
-      subTopics: (t.subTopics || []).map((st) => ({
-        id: st.id,
+      levelId: t.levelId || null,
+      subTopics: (subtopicsByTopic[t._id] || []).map((st) => ({
+        id: String(st._id),
         name: st.name,
-        questionCount: subTopicCount[t._id]?.[st.id] || 0,
+        questionCount: subTopicCount[t._id]?.[String(st._id)] || 0,
       })),
       questionCount: topicTotal[t._id] || 0,
     }));

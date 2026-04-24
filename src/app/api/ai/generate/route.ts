@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import { categorizePscQuestion } from "@/lib/examfilter/categorize";
 import {
   GENERATOR_SYSTEM_PROMPT,
   HARD_CONSTRAINTS,
@@ -21,7 +22,8 @@ export async function POST(request: Request) {
       sourceType,
       sourceRef,
       topicHint,
-      examTags,
+      level: bodyLevel,
+      exam: bodyExam,
       difficultyHint,
       styleHint,
       store = true,
@@ -61,7 +63,8 @@ export async function POST(request: Request) {
     const user = buildGeneratorUserPrompt({
       sourceType,
       topicHint,
-      examTags,
+      level: bodyLevel,
+      exam: bodyExam,
       difficultyHint,
       styleHint,
       sourceText,
@@ -83,6 +86,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, data: { question: parsed } });
     }
 
+    const categorization = categorizePscQuestion({
+      text: parsed.text.en,
+      optionsText: parsed.options.map((o) => o.en).join(" \n "),
+      explanation: parsed.explanation.en,
+      examCode: parsed.examCode,
+      examName: parsed.exam,
+      sourceRef: typeof sourceRef === "string" ? sourceRef : "",
+    });
+
+    // Priority: AI-generated fields > categorization
+    const resolvedLevel = parsed.level || categorization.level;
+    const resolvedExam = parsed.exam || categorization.exam;
+    const resolvedExamCode = parsed.examCode || "";
+
     await connectDB();
     const created = await Question.create({
       text: { en: parsed.text.en, ml: parsed.text.ml ?? "" },
@@ -98,9 +115,9 @@ export async function POST(request: Request) {
       tags: parsed.tags ?? [],
       difficulty: parsed.difficulty,
       questionStyle: parsed.questionStyle,
-      examTags: (parsed.examTags ?? []).filter((t) =>
-        ["ldc", "lgs", "degree", "police"].includes(t)
-      ),
+      level: resolvedLevel,
+      exam: resolvedExam,
+      examCode: resolvedExamCode,
       sourceType:
         sourceType === "pyq" ||
         sourceType === "pyq_variant" ||

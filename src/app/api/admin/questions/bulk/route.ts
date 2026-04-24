@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import { categorizePscQuestion } from "@/lib/examfilter/categorize";
 
 // POST bulk import questions
 export async function POST(request: Request) {
@@ -46,6 +47,20 @@ export async function POST(request: Request) {
           continue;
         }
 
+        const categorization = categorizePscQuestion({
+          text: q.text?.en,
+          optionsText: Array.isArray(q.options) ? q.options.map((o: { en?: string }) => o?.en || "").join(" \n ") : "",
+          explanation: q.explanation?.en,
+          examCode: q.examCode,
+          examName: q.exam || q.pyq?.exam,
+          sourceRef: q.sourceRef,
+        });
+
+        // Priority: explicit fields > categorization
+        const resolvedLevel = q.level || categorization.level;
+        const resolvedExam = q.exam || categorization.exam;
+        const resolvedExamCode = q.examCode || "";
+
         await Question.create({
           text: { en: q.text.en, ml: q.text.ml || "" },
           options: q.options.map((o: { key: string; en: string; ml?: string }) => ({
@@ -58,7 +73,9 @@ export async function POST(request: Request) {
           tags: q.tags || [],
           difficulty: q.difficulty || 2,
           questionStyle: q.questionStyle || "direct",
-          examTags: q.examTags || [],
+          level: resolvedLevel,
+          exam: resolvedExam,
+          examCode: resolvedExamCode,
           pyq: q.pyq || undefined,
           isVerified: q.isVerified ?? true,
           createdBy: guard.userId,

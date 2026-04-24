@@ -8,21 +8,22 @@ const TEMPLATE = `[
     "sourceType": "pyq",
     "sourceRef": "Kerala PSC LDC 2023 Set A (paste question context)",
     "topicHint": "history",
-    "examTags": ["ldc"],
+    "level": "10th_level",
+    "exam": "LDC VARIOUS",
     "sourceText": "Paste PYQ text here (question + options + answer/exam context if you have it). Do NOT paste entire paper."
   },
   {
     "sourceType": "institute",
     "sourceRef": "Coaching notes - Kerala polity (summary)",
     "topicHint": "polity",
-    "examTags": ["ldc", "lgs"],
+    "level": "10th_level",
     "sourceText": "Paste a short, reliable concept summary here (no verbatim copying)."
   },
   {
     "sourceType": "internet",
     "sourceRef": "Official site / scheme page title",
     "topicHint": "current_affairs",
-    "examTags": ["degree"],
+    "level": "degree_level",
     "sourceText": "Paste key points from a reliable source you already verified."
   }
 ]`;

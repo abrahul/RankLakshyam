@@ -1,0 +1,911 @@
+{
+  "10th_level": [
+    {
+      "exam": "10TH PRELIMS 2021 STAGE I",
+      "code": "029/21"
+    },
+    {
+      "exam": "10TH PRELIMS 2021 STAGE II",
+      "code": "030/21"
+    },
+    {
+      "exam": "10TH PRELIMS 2021 STAGE III",
+      "code": "031/21"
+    },
+    {
+      "exam": "10TH PRELIMS 2021 STAGE IV",
+      "code": "032/21"
+    },
+    {
+      "exam": "10TH PRELIMS 2021 STAGE V",
+      "code": "084/21"
+    },
+    {
+      "exam": "LDC EX SERVICEMEN",
+      "code": "100/21"
+    },
+    {
+      "exam": "ASSISTANT GR II / SERGEANT",
+      "code": "110/21"
+    },
+    {
+      "exam": "LDC VARIOUS",
+      "code": "117/21"
+    },
+    {
+      "exam": "LGS VARIOUS",
+      "code": "122/21"
+    },
+    {
+      "exam": "MED PHOTOGRAPHER",
+      "code": "125/21"
+    },
+    {
+      "exam": "ASSISTANT COMPILER",
+      "code": "126/21"
+    },
+    {
+      "exam": "OFFICE ATTENDANT",
+      "code": "127/21"
+    },
+    {
+      "exam": "ASSISTANT SALESMAN",
+      "code": "128/21"
+    },
+    {
+      "exam": "FIELD WORKER",
+      "code": "134/21"
+    },
+    {
+      "exam": "ICDS SUPERVISOR",
+      "code": "135/21"
+    },
+    {
+      "exam": "VEO",
+      "code": "136/21"
+    },
+    {
+      "exam": "BINDER",
+      "code": "139/21"
+    },
+    {
+      "exam": "10TH PRELIMS 2022 STAGE I",
+      "code": "053/22"
+    },
+    {
+      "exam": "10TH PRELIMS 2022 STAGE II",
+      "code": "060/22"
+    },
+    {
+      "exam": "10TH PRELIMS 2022 STAGE III",
+      "code": "068/22"
+    },
+    {
+      "exam": "10TH PRELIMS 2022 STAGE IV",
+      "code": "071/22"
+    },
+    {
+      "exam": "10TH PRELIMS 2022 STAGE V",
+      "code": "076/22"
+    },
+    {
+      "exam": "10TH PRELIMS 2022 STAGE VI",
+      "code": "077/22"
+    },
+    {
+      "exam": "COOK TOURISM DEPT",
+      "code": "089/21"
+    },
+    {
+      "exam": "LD CLERK (KANNADA&MALAYALAM)",
+      "code": "105/21"
+    },
+    {
+      "exam": "LD CLERK (TAMIL&MALAYALAM)",
+      "code": "124/21"
+    },
+    {
+      "exam": "DRIVER",
+      "code": "087/22"
+    },
+    {
+      "exam": "POLICE CONSTABLE IRB",
+      "code": "095/22"
+    },
+    {
+      "exam": "LD TYPIST",
+      "code": "004/23"
+    },
+    {
+      "exam": "ATTENDER KSIDC",
+      "code": "010/23"
+    },
+    {
+      "exam": "10TH PRELIMS",
+      "code": "014/23"
+    },
+    {
+      "exam": "DRIVER",
+      "code": "015/23"
+    },
+    {
+      "exam": "ASSISTANT PRISON OFFICER",
+      "code": "030/23"
+    },
+    {
+      "exam": "POLICE CONSTABLE IRB MAINS",
+      "code": "032/23"
+    },
+    {
+      "exam": "VILLAGE FIELD ASSISTANT (VFA)",
+      "code": "036/23"
+    },
+    {
+      "exam": "AYAH",
+      "code": "039/23"
+    },
+    {
+      "exam": "JUNIOR TYPIST CLERK",
+      "code": "042/23"
+    },
+    {
+      "exam": "LDC EX SERVICEMEN",
+      "code": "138/23"
+    },
+    {
+      "exam": "UNIVERSITY LGS PRELIMS STAGE I",
+      "code": "141/23"
+    },
+    {
+      "exam": "SECURITY GUARD",
+      "code": "144/23"
+    },
+    {
+      "exam": "UNIVERSITY LGS PRELIMS STAGE II",
+      "code": "154/23"
+    },
+    {
+      "exam": "UNIVERSITY LGS PRELIMS STAGE III",
+      "code": "166/23"
+    },
+    {
+      "exam": "COOK GR II",
+      "code": "172/23"
+    },
+    {
+      "exam": "UNIVERSITY LGS PRELIMS STAGE IV",
+      "code": "184/23"
+    },
+    {
+      "exam": "BLUE PRINTER/WATCHMAN",
+      "code": "189/23"
+    },
+    {
+      "exam": "KHADI BOARD LDC PRELIMS STAGE I",
+      "code": "202/23"
+    },
+    {
+      "exam": "LDC (TAMIL&MALAYALAM)",
+      "code": "208/23"
+    },
+    {
+      "exam": "UNIVERSITY LGS PRELIMS STAGE V",
+      "code": "213/23"
+    },
+    {
+      "exam": "FEMALE ASST PRISON OFFICER",
+      "code": "215/23"
+    },
+    {
+      "exam": "FOREST BOAT DRIVER",
+      "code": "221/23"
+    },
+    {
+      "exam": "KHADI BOARD LDC PRELIMS STAGE II",
+      "code": "224/23"
+    },
+    {
+      "exam": "OFFICE ATTENDER",
+      "code": "228/23"
+    },
+    {
+      "exam": "KHADI BOARD LDC PRELIMS STAGE III",
+      "code": "233/23"
+    },
+    {
+      "exam": "FOREST DRIVER",
+      "code": "237/23"
+    },
+    {
+      "exam": "KHADI BOARD LDC PRELIMS STAGE IV",
+      "code": "239/23"
+    },
+    {
+      "exam": "LGS/AYAH",
+      "code": "245/23"
+    },
+    {
+      "exam": "KHADI BOARD LDC PRELIMS STAGE V",
+      "code": "013/24"
+    },
+    {
+      "exam": "UNIVERSITY LGS MAINS",
+      "code": "019/24"
+    },
+    {
+      "exam": "FEMALE ASST PRISON OFFICER (NCA)",
+      "code": "022/24"
+    },
+    {
+      "exam": "CARE TAKER/MALE WARDEN",
+      "code": "052/24"
+    },
+    {
+      "exam": "DRIVER",
+      "code": "053/24"
+    },
+    {
+      "exam": "KAVADI/LGS",
+      "code": "057/24"
+    },
+    {
+      "exam": "ASSISTANT COMPILER",
+      "code": "059/24"
+    },
+    {
+      "exam": "COOLY WORKER",
+      "code": "061/24"
+    },
+    {
+      "exam": "OFFICE ATTENDANT GR II",
+      "code": "074/24"
+    },
+    {
+      "exam": "AMBULANCE ASSISTANT",
+      "code": "085/24"
+    },
+    {
+      "exam": "FARM WORKER",
+      "code": "091/24"
+    },
+    {
+      "exam": "LDC (KANNADA&MALAYALAM)",
+      "code": "092/24"
+    },
+    {
+      "exam": "LDC VARIOUS THIRUVANANTHAPURAM",
+      "code": "094/24"
+    },
+    {
+      "exam": "FIELD WORKER",
+      "code": "095/24"
+    },
+    {
+      "exam": "KHADI BOARD LDC MAINS",
+      "code": "097/24"
+    },
+    {
+      "exam": "SEAMAN",
+      "code": "104/24"
+    },
+    {
+      "exam": "LDC VARIOUS KOLLAM/KANNUR",
+      "code": "109/24"
+    },
+    {
+      "exam": "LABORATORY ATTENDER",
+      "code": "112/24"
+    },
+    {
+      "exam": "LDC VARIOUS PTA/TSR/KSD",
+      "code": "117/24"
+    },
+    {
+      "exam": "LDC VARIOUS ALAPPUZHA/PALAKKAD",
+      "code": "122/24"
+    },
+    {
+      "exam": "LDC VARIOUS KOTTAYAM/KOZHIKKODE",
+      "code": "128/24"
+    },
+    {
+      "exam": "LDC VARIOUS ERNAKULAM/WAYANAD",
+      "code": "133/24"
+    },
+    {
+      "exam": "OFFICE ATTENDER GRADE II",
+      "code": "135/24"
+    },
+    {
+      "exam": "LDC BY TRANSFER",
+      "code": null,
+      "note": "Code not visible in uploaded image"
+    },
+    {
+      "exam": "LDC VARIOUS IDUKKI/MALAPPURAM",
+      "code": "140/24"
+    },
+    {
+      "exam": "OA KERALA BANK",
+      "code": "147/24"
+    },
+    {
+      "exam": "LGS - VARIOUS KOLLAM, PALAKKAD, WAYANAD, KASARGODE",
+      "code": "151/24"
+    },
+    {
+      "exam": "MATRON GRADE I",
+      "code": "154/24"
+    },
+    {
+      "exam": "LGS PATHANAMTHITTA IDUKKI MALAPPURAM KANNUR",
+      "code": "165/24"
+    },
+    {
+      "exam": "LGS THIRUVANANTHAPURAM KOTTAYAM THRISSUR",
+      "code": "170/24"
+    },
+    {
+      "exam": "THEATRE ASSISTANT/ MUSEUM ATTENDANT- MAIN EXAMINATION",
+      "code": "173/24"
+    },
+    {
+      "exam": "LGS ALAPPUZHA ERNAKULAM KOZHIKKODE",
+      "code": "174/24"
+    },
+    {
+      "exam": "CLERK (TAMIL AND MALAYALAM KNOWING)- PRELIMINARY EXAMINATION",
+      "code": "178/24"
+    },
+    {
+      "exam": "10TH LEVEL PRELIMS STAGE I",
+      "code": "185/24"
+    },
+    {
+      "exam": "UP TO 10TH LEVEL COMMON PRELIMINARY EXAMINATION- STAGE 1",
+      "code": "05/25"
+    },
+    {
+      "exam": "UP TO 10TH LEVEL COMMON PRELIMINARY EXAMINATION- STAGE 2",
+      "code": "011/25"
+    },
+    {
+      "exam": "UP TO 10TH LEVEL COMMON PRELIMINARY EXAMINATION- STAGE 3",
+      "code": "017/25"
+    },
+    {
+      "exam": "VILLAGE FIELD ASSISTANT",
+      "code": "032/25"
+    },
+    {
+      "exam": "OFFICE ATTENDANT",
+      "code": "054/25"
+    },
+    {
+      "exam": "LABORATORY ASSISTANT- HSE",
+      "code": "068/25"
+    },
+    {
+      "exam": "PEON/ROOM ATTENDANT/ NIGHT WATCHMAN- MAINS",
+      "code": "070/25"
+    },
+    {
+      "exam": "ASSISTANT PRISON OFFICER CUM DRIVER",
+      "code": "089/25"
+    },
+    {
+      "exam": "ASSISTANT SALESMAN 1",
+      "code": "097/25"
+    },
+    {
+      "exam": "ASSISTANT SALESMAN 2",
+      "code": "102/25"
+    },
+    {
+      "exam": "DRIVER/CHAUFFEUR/SECURITY GUARD/FOREST DRIVER",
+      "code": "107/25"
+    },
+    {
+      "exam": "DUFFEDAR/POWER LAUNDRY ATTENDER/MASON/SWEEPER/LGS/AYAH ETC",
+      "code": "117/25"
+    },
+    {
+      "exam": "ASSISTANT TIME KEEPER",
+      "code": "125/25"
+    },
+    {
+      "exam": "STORE KEEPER",
+      "code": "128/25"
+    },
+    {
+      "exam": "ATTENDER GRADE II / SALESMAN GRADE II",
+      "code": "135/25"
+    },
+    {
+      "exam": "ATTENDER GRADE II",
+      "code": "145/25"
+    },
+    {
+      "exam": "WATCH MAN/ PEON/ AYAH ETC",
+      "code": "161/25"
+    },
+    {
+      "exam": "CLERK- SPECIAL RECRUITMENT",
+      "code": "079/25"
+    }
+  ],
+  "plus2_level": [
+    {
+      "exam": "+2 PRELIMS 2021 STAGE I",
+      "code": "041/21"
+    },
+    {
+      "exam": "+2 PRELIMS 2021 STAGE II",
+      "code": "042/21"
+    },
+    {
+      "exam": "POLICE CONSTABLE",
+      "code": "017/22"
+    },
+    {
+      "exam": "FIREMAN/FIRE WOMEN",
+      "code": "018/22"
+    },
+    {
+      "exam": "BEAT FOREST OFFICER",
+      "code": "021/22"
+    },
+    {
+      "exam": "OFFICE SUPERINTENDENT (SR)",
+      "code": "023/22"
+    },
+    {
+      "exam": "CIVIL EXCISE OFFICER",
+      "code": "025/22"
+    },
+    {
+      "exam": "INSPECTING ASSISTANT",
+      "code": "026/22"
+    },
+    {
+      "exam": "COMPUTER ASSISTANT GR II",
+      "code": "080/22"
+    },
+    {
+      "exam": "+2 PRELIMS 2022 STAGE I",
+      "code": "084/22"
+    },
+    {
+      "exam": "BEAT FOREST OFFICER (SR)",
+      "code": "086/22"
+    },
+    {
+      "exam": "+2 PRELIMS 2022 STAGE II",
+      "code": "088/22"
+    },
+    {
+      "exam": "POLICE CONSTABLE (TELECOMMUNICATIONS)",
+      "code": "089/22"
+    },
+    {
+      "exam": "BEAT FOREST OFFICER",
+      "code": "035/23"
+    },
+    {
+      "exam": "DATA ENTRY OPERATOR",
+      "code": "040/23"
+    },
+    {
+      "exam": "CIVIL EXCISE OFFICER",
+      "code": "041/23"
+    },
+    {
+      "exam": "FIRE & RESCUE OFFICER",
+      "code": "048/23"
+    },
+    {
+      "exam": "POLICE CONSTABLE",
+      "code": "111/23"
+    },
+    {
+      "exam": "POLICE CONSTABLE (ARMED)",
+      "code": "123/23"
+    },
+    {
+      "exam": "POLICE CONSTABLE",
+      "code": "127/23"
+    },
+    {
+      "exam": "JUNIOR PROJECT ASSISTANT",
+      "code": "135/23"
+    },
+    {
+      "exam": "FIRE & RESCUE OFFICER",
+      "code": "244/23"
+    },
+    {
+      "exam": "FIRE & RESCUE OFFICER (DRIVER)",
+      "code": "011/24"
+    },
+    {
+      "exam": "WOMEN FIRE & RESCUE OFFICER",
+      "code": "020/24"
+    },
+    {
+      "exam": "WOMEN CIVIL EXCISE OFFICER",
+      "code": "025/24"
+    },
+    {
+      "exam": "BEAT FOREST OFFICER",
+      "code": "027/24"
+    },
+    {
+      "exam": "POLICE CONSTABLE DRIVER",
+      "code": "039/24"
+    },
+    {
+      "exam": "POLICE CONSTABLE",
+      "code": "066/24"
+    },
+    {
+      "exam": "WOMEN POLICE CONSTABLE",
+      "code": "078/24"
+    },
+    {
+      "exam": "CIVIL EXCISE OFFICER / WOMEN CIVIL EXCISE OFFICER (TRAINEE)",
+      "code": "053/25"
+    },
+    {
+      "exam": "FEMALE ASSISTANT PRISON OFFICER/ASSISTANT PRISON OFFICER",
+      "code": "057/25"
+    },
+    {
+      "exam": "COMPUTER OPERATOR / ANALYST",
+      "code": "060/25"
+    },
+    {
+      "exam": "WOMAN FIRE AND RESCUE OFFICER",
+      "code": "084/25"
+    },
+    {
+      "exam": "FIRE AND RESCUE OFFICER (DRIVER)",
+      "code": "085/25"
+    },
+    {
+      "exam": "POLICE CONSTABLE DRIVER / WOMAN POLICE CONSTABLE DRIVER",
+      "code": "086/25"
+    },
+    {
+      "exam": "WOMAN POLICE CONSTABLE",
+      "code": "088/25"
+    },
+    {
+      "exam": "ASSISTANT SUB INSPECTOR TRAINEE, POLICE CONSTABLE",
+      "code": "092/25"
+    }
+  ],
+  "degree_level": [
+    {
+      "exam": "SC DEVELOPMENT OFFICER",
+      "code": "077/21"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2021 STAGE I",
+      "code": "075/21"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2021 STAGE II",
+      "code": "096/21"
+    },
+    {
+      "exam": "TAHSILDAR",
+      "code": "070/22"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2022 STAGE I",
+      "code": "101/22"
+    },
+    {
+      "exam": "LDC WATER AUTHORITY (DEGREE)",
+      "code": "106/22"
+    },
+    {
+      "exam": "SI OF POLICE",
+      "code": "117/22"
+    },
+    {
+      "exam": "SR. SUPERINTENDENT",
+      "code": "118/22"
+    },
+    {
+      "exam": "ASSISTANT JAILOR",
+      "code": "119/22"
+    },
+    {
+      "exam": "DATA ENTRY OPERATOR",
+      "code": "120/22"
+    },
+    {
+      "exam": "EXCISE INSPECTOR",
+      "code": "122/22"
+    },
+    {
+      "exam": "JUNIOR RECEPTIONIST",
+      "code": "123/22"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2022 STAGE III",
+      "code": "127/22"
+    },
+    {
+      "exam": "SECRETARIAT ASSISTANT",
+      "code": "128/22"
+    },
+    {
+      "exam": "ASSISTANT DIRECTOR OF NATIONAL SAVINGS",
+      "code": "130/22"
+    },
+    {
+      "exam": "ASSISTANT- KAT",
+      "code": "131/22"
+    },
+    {
+      "exam": "TYPIST CLERK GR II",
+      "code": "133/22"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2022 STAGE II",
+      "code": "116/22"
+    },
+    {
+      "exam": "STATION OFFICER (FIRE & RESCUE)",
+      "code": "018/23"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2023 STAGE I",
+      "code": "031/23"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2023 STAGE II",
+      "code": "037/23"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2023 STAGE III",
+      "code": "047/23"
+    },
+    {
+      "exam": "JUNIOR ASSISTANT (KSFE,KSEB)",
+      "code": "060/23"
+    },
+    {
+      "exam": "JUNIOR EMPLOYMENT OFFICER",
+      "code": "076/23"
+    },
+    {
+      "exam": "CLERK CUM TYPIST",
+      "code": "081/23"
+    },
+    {
+      "exam": "ARMED POLICE SI (SR)",
+      "code": "097/23"
+    },
+    {
+      "exam": "SI OF POLICE",
+      "code": "158/23"
+    },
+    {
+      "exam": "UNIVERSITY ASSISTANT",
+      "code": "160/23"
+    },
+    {
+      "exam": "FIELD OFFICER",
+      "code": "161/23"
+    },
+    {
+      "exam": "JUNIOR ASSISTANT",
+      "code": "041/24"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2024 STAGE I",
+      "code": "038/24"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2024 STAGE II",
+      "code": "047/24"
+    },
+    {
+      "exam": "DEGREE PRELIMS 2024 STAGE III",
+      "code": "071/24"
+    },
+    {
+      "exam": "SALES ASSISTANT GR II",
+      "code": "102/24"
+    },
+    {
+      "exam": "SI OF POLICE / ARMED SI OF POLICE",
+      "code": "127/24"
+    },
+    {
+      "exam": "LSGI SECRETARY PAPER 1",
+      "code": "155/24"
+    },
+    {
+      "exam": "LSGI SECRETARY PAPER 2",
+      "code": "156/24"
+    },
+    {
+      "exam": "FOOD SAFETY OFFICER",
+      "code": "07/25"
+    },
+    {
+      "exam": "ACCOUNTANT- KERAFED",
+      "code": "024/25"
+    },
+    {
+      "exam": "SUPERVISOR(ICDS)",
+      "code": "025/25"
+    },
+    {
+      "exam": "DIVISIONAL ACCOUNTANT/ DIVISIONAL ACCOUNTS OFFICER- PRELIMINARY",
+      "code": "050/25"
+    },
+    {
+      "exam": "GRADUATE LEVEL PRELIMINARY EXAMINATION",
+      "code": "056/25"
+    },
+    {
+      "exam": "KAS OFFICER JR TIME SCALE TRAINEE - STREAM I/STREAM II/STREAM III",
+      "code": "064/25"
+    },
+    {
+      "exam": "KAS OFFICER JR TIME SCALE TRAINEE - STREAM I/STREAM II/STREAM III",
+      "code": "065/25"
+    },
+    {
+      "exam": "GRADUATE LEVEL PRELIMINARY EXAMINATION",
+      "code": "072/25"
+    },
+    {
+      "exam": "AGRICULTURAL OFFICER",
+      "code": "078/25"
+    },
+    {
+      "exam": "SALES ASSISTANT GRADE II",
+      "code": "083/25"
+    },
+    {
+      "exam": "SUB INSPECTOR OF POLICE, ARMED POLICE SUB INSPECTOR (MAIN)",
+      "code": "109/25"
+    },
+    {
+      "exam": "ASSISTANT GRADE II/JUNIOR ASSISTANT",
+      "code": "119/25"
+    },
+    {
+      "exam": "FIELD OFFICER - KERALA FOREST DEVELOPMENT CORPORATION",
+      "code": "120/25"
+    },
+    {
+      "exam": "ASSISTANT AUDITOR SECRETARIAT/ KPSC ETC",
+      "code": "122/25"
+    },
+    {
+      "exam": "ASSISTANT AUDITOR SECRETARIAT/ KPSC ETC PAPER2",
+      "code": "123/25"
+    }
+  ],
+  "other_exams": [
+    {
+      "exam": "FARM ASSISTANT GRADE II (AGRI)",
+      "code": "01/25"
+    },
+    {
+      "exam": "ASSISTANT INSURANCE MEDICAL OFFICER",
+      "code": "02/25"
+    },
+    {
+      "exam": "DRAFTSMAN GRADE II/ TOWN PLANNING SURVEYOR GR II",
+      "code": "03/25"
+    },
+    {
+      "exam": "JUNIOR INSTRUCTOR (DRESS MAKING)",
+      "code": "04/25"
+    },
+    {
+      "exam": "JUNIOR INSTRUCTOR",
+      "code": "06/25"
+    },
+    {
+      "exam": "JUNIOR INSTRUCTOR (MACHINIST)",
+      "code": "08/25"
+    },
+    {
+      "exam": "JUNIOR INSTRUCTOR",
+      "code": "010/25"
+    },
+    {
+      "exam": "FULL TIME/PART TIME JUNIOR LANGUAGE TEACHER (ARABIC)",
+      "code": "029/25"
+    },
+    {
+      "exam": "FULL TIME/PART TIME JUNIOR LANGUAGE TEACHER(HINDI)",
+      "code": "058/25"
+    },
+    {
+      "exam": "LIBRARIAN GRADE IV AND CULTURAL ASSISTANT",
+      "code": "061/25"
+    },
+    {
+      "exam": "ASSISTANT TOWN PLANNER",
+      "code": "062/25"
+    },
+    {
+      "exam": "TECHNICAL ASSISTANT GR II",
+      "code": "063/25"
+    },
+    {
+      "exam": "SKILLED ASSISTANT GR II",
+      "code": "066/25"
+    },
+    {
+      "exam": "PRE-PRIMARY TEACHER",
+      "code": "067/25"
+    },
+    {
+      "exam": "LABORATORY TECHNICIAN GR II",
+      "code": "069/25"
+    },
+    {
+      "exam": "HIGHER SECONDARY SCHOOL TEACHER (JUNIOR) HINDI",
+      "code": "073/25"
+    },
+    {
+      "exam": "STAFF NURSE GRADE II/NURSE GRADE II",
+      "code": "087/25"
+    },
+    {
+      "exam": "L.D. TECHNICIAN/LABORATORY ATTENDER",
+      "code": "091/25"
+    },
+    {
+      "exam": "ASSISTANT ENGINEER (ELECTRONICS)",
+      "code": "094/25"
+    },
+    {
+      "exam": "DRAFTSMAN GRADE II(CIVIL)/OVERSEER GRADE II",
+      "code": "095/25"
+    },
+    {
+      "exam": "HST- MALAYALAM",
+      "code": "096/25"
+    },
+    {
+      "exam": "HST- NATURAL SCIENCE- MALAYALAM MEDIUM",
+      "code": "098/25"
+    },
+    {
+      "exam": "HST- PHYSICAL SCIENCE-",
+      "code": "099/25"
+    },
+    {
+      "exam": "PTHST/HST HINDI",
+      "code": "100/25"
+    },
+    {
+      "exam": "HST- MATHEMATICS-MALAYALAM MEDIUM",
+      "code": "101/25"
+    },
+    {
+      "exam": "HSST- COMMUNICATIVE ENGLISH",
+      "code": "105/25"
+    },
+    {
+      "exam": "HST(ENGLISH) - EDUCATION",
+      "code": "106/25"
+    },
+    {
+      "exam": "HST (SOCIAL SCIENCE)",
+      "code": "141/25"
+    }
+  ]
+}

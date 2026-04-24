@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import type { LevelName } from "@/lib/db/models/Level";
 
 export interface IQuestion extends Document {
   _id: mongoose.Types.ObjectId;
@@ -12,7 +13,12 @@ export interface IQuestion extends Document {
   tags: string[];
   difficulty: 1 | 2 | 3 | 4 | 5;
   questionStyle: "direct" | "concept" | "statement" | "negative" | "indirect";
-  examTags: Array<"ldc" | "lgs" | "degree" | "police">;
+
+  // ── New category fields (replacing examTags) ──
+  level: LevelName;
+  exam: string;
+  examCode: string;
+
   pyq?: { exam: string; year: number; questionNumber: number };
   sourceType?: "pyq" | "pyq_variant" | "institute" | "internet";
   sourceRef?: string;
@@ -77,7 +83,16 @@ const QuestionSchema = new Schema<IQuestion>(
       enum: ["direct", "concept", "statement", "negative", "indirect"],
       default: "direct",
     },
-    examTags: [{ type: String, enum: ["ldc", "lgs", "degree", "police"] }],
+
+    // ── New category fields ──
+    level: {
+      type: String,
+      enum: ["10th_level", "plus2_level", "degree_level", "other_exams"],
+      default: "10th_level",
+    },
+    exam: { type: String, default: "" },
+    examCode: { type: String, default: "" },
+
     pyq: {
       exam: String,
       year: Number,
@@ -105,7 +120,8 @@ const QuestionSchema = new Schema<IQuestion>(
   { timestamps: true }
 );
 
-QuestionSchema.index({ topicId: 1, difficulty: 1, examTags: 1, isVerified: 1 });
+// ── Indexes ──
+QuestionSchema.index({ topicId: 1, difficulty: 1, isVerified: 1 });
 QuestionSchema.index({ topicId: 1, subTopic: 1, difficulty: 1 });
 QuestionSchema.index({ topicId: 1, questionStyle: 1, difficulty: 1 });
 QuestionSchema.index({ status: 1, createdAt: -1 });
@@ -114,6 +130,11 @@ QuestionSchema.index({ "pyq.exam": 1, "pyq.year": -1, "pyq.questionNumber": 1 })
 QuestionSchema.index({ tags: 1 });
 QuestionSchema.index({ isVerified: 1, createdAt: -1 });
 QuestionSchema.index({ "text.en": "text", "text.ml": "text" });
+
+// New category indexes
+QuestionSchema.index({ examCode: 1 });
+QuestionSchema.index({ level: 1, exam: 1 });
+QuestionSchema.index({ level: 1, isVerified: 1 });
 
 const Question: Model<IQuestion> =
   mongoose.models.Question ||

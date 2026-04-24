@@ -70,7 +70,9 @@ Schema:
   "topicId": "string",
   "subTopic": "string",
   "difficulty": 1,
-  "examTags": ["string"],
+  "level": "10th_level|plus2_level|degree_level|other_exams",
+  "exam": "string",
+  "examCode": "string",
   "tags": ["string"],
   "questionStyle": "direct|concept|statement|negative|indirect"
 }
@@ -106,14 +108,16 @@ Return JSON only.
 export const buildGeneratorUserPrompt = ({
   sourceType,
   topicHint,
-  examTags,
+  level,
+  exam,
   difficultyHint,
   styleHint,
   sourceText,
 }: {
   sourceType?: string;
   topicHint?: string;
-  examTags?: string[];
+  level?: string;
+  exam?: string;
   difficultyHint?: string;
   styleHint?: string;
   sourceText: string;
@@ -122,7 +126,8 @@ Convert the following source into one Kerala PSC-style MCQ.
 
 Source Type: ${sourceType ?? "general"}
 Preferred Topic: ${topicHint ?? "auto"}
-Preferred Exam Tags: ${(examTags ?? []).join(", ") || "auto"}
+Preferred Level: ${level ?? "auto"}
+Preferred Exam: ${exam ?? "auto"}
 Preferred Difficulty: ${difficultyHint ?? "auto"}
 Preferred Style: ${styleHint ?? "auto"}
 
@@ -182,7 +187,9 @@ Return ONLY valid JSON.
     "topicId": "string",
     "subTopic": "string",
     "difficulty": 1,
-    "examTags": ["string"],
+    "level": "10th_level|plus2_level|degree_level|other_exams",
+    "exam": "string",
+    "examCode": "string",
     "tags": ["string"],
     "questionStyle": "direct|concept|statement|negative|indirect"
   }
@@ -246,7 +253,9 @@ Schema:
   "topicId": "string",
   "subTopic": "string",
   "difficulty": 1,
-  "examTags": ["string"],
+  "level": "10th_level|plus2_level|degree_level|other_exams",
+  "exam": "string",
+  "examCode": "string",
   "tags": ["string"],
   "questionStyle": "direct|concept|statement|negative|indirect"
 }
@@ -309,7 +318,9 @@ Each object must follow this schema:
   "topicId": "string",
   "subTopic": "string",
   "difficulty": 1,
-  "examTags": ["string"],
+  "level": "10th_level|plus2_level|degree_level|other_exams",
+  "exam": "string",
+  "examCode": "string",
   "tags": ["string"],
   "questionStyle": "direct|concept|statement|negative|indirect"
 }
@@ -434,11 +445,13 @@ Return JSON only.
 export const buildQuizMixUserPrompt = ({
   weakTopics,
   recentTopics,
-  examTags,
+  level,
+  exam,
 }: {
   weakTopics?: string[];
   recentTopics?: string[];
-  examTags?: string[];
+  level?: string;
+  exam?: string;
 }) => `
 Generate a 20-question quiz composition plan for this user.
 
@@ -448,6 +461,9 @@ ${(weakTopics ?? []).join(", ") || "none"}
 Recently Seen Topics:
 ${(recentTopics ?? []).join(", ") || "none"}
 
-Target Exams:
-${(examTags ?? []).join(", ") || "general"}
+Target Level:
+${level ?? "general"}
+
+Target Exam:
+${exam ?? "general"}
 `;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import { LEVEL_NAMES } from "@/lib/db/models/Level";
 
 export async function GET(request: Request) {
   try {
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const topic = searchParams.get("topic");
     const subTopic = searchParams.get("subTopic");
+    const level = searchParams.get("level");
     const exam = searchParams.get("exam");
     const difficulty = searchParams.get("difficulty");
     const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
@@ -25,7 +27,10 @@ export async function GET(request: Request) {
     const filter: Record<string, unknown> = { isVerified: true };
     if (topic && topic.length <= 64) filter.topicId = topic;
     if (subTopic && subTopic.length <= 64) filter.subTopic = subTopic;
-    if (exam && exam.length <= 32) filter.examTags = exam; // MongoDB matches if array contains value
+    if (level && (LEVEL_NAMES as readonly string[]).includes(level)) {
+      filter.level = level;
+    }
+    if (exam && exam.length <= 128) filter.exam = exam;
     if (difficulty) {
       const d = parseInt(difficulty, 10);
       if (Number.isFinite(d) && d >= 1 && d <= 5) filter.difficulty = d;

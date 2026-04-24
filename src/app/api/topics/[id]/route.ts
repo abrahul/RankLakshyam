@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Topic from "@/lib/db/models/Topic";
+import SubTopic from "@/lib/db/models/SubTopic";
 import Question from "@/lib/db/models/Question";
 
 export async function GET(
@@ -28,6 +29,9 @@ export async function GET(
       );
     }
 
+    // Fetch subtopics from SubTopic collection
+    const subtopics = await SubTopic.find({ topicId: id }).sort({ sortOrder: 1 }).lean();
+
     // Get per-subtopic question counts
     const subTopicCounts = await Question.aggregate([
       { $match: { topicId: id, isVerified: true } },
@@ -44,12 +48,13 @@ export async function GET(
         name: topic.name,
         icon: topic.icon,
         color: topic.color,
-        examTags: topic.examTags,
-        subTopics: (topic.subTopics || []).map((st) => ({
-          ...st,
-          questionCount: countMap[st.id] || 0,
+        levelId: topic.levelId || null,
+        subTopics: subtopics.map((st) => ({
+          id: String(st._id),
+          name: st.name,
+          questionCount: countMap[String(st._id)] || 0,
         })),
-        totalQuestions: Object.values(countMap).reduce((a, b) => a + b, 0),
+        totalQuestions: Object.values(countMap).reduce((a: number, b: number) => a + b, 0),
       },
     });
   } catch (error) {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import { categorizePscQuestion } from "@/lib/examfilter/categorize";
 import {
   GENERATOR_SYSTEM_PROMPT,
   VALIDATOR_SYSTEM_PROMPT,
@@ -26,7 +27,8 @@ const DatasetSourceSchema = z.object({
   sourceRef: z.string().optional().default(""),
   sourceText: z.string().min(1),
   topicHint: z.string().optional(),
-  examTags: z.array(z.string()).optional(),
+  level: z.string().optional(),
+  exam: z.string().optional(),
 });
 
 const DatasetRequestSchema = z.object({
@@ -60,16 +62,6 @@ function pickSource(
   return sources[idx % sources.length];
 }
 
-function normalizeExamTags(tags: string[] | undefined): Array<"ldc" | "lgs" | "degree" | "police"> {
-  const allowed = ["ldc", "lgs", "degree", "police"] as const;
-  const set = new Set(
-    (tags ?? [])
-      .map((t) => String(t).toLowerCase())
-      .filter((t): t is (typeof allowed)[number] => (allowed as readonly string[]).includes(t))
-  );
-  return Array.from(set) as Array<"ldc" | "lgs" | "degree" | "police">;
-}
-
 async function generateOne({
   apiKey,
   model,
@@ -87,7 +79,8 @@ async function generateOne({
   const user = buildGeneratorUserPrompt({
     sourceType: source.sourceType,
     topicHint: source.topicHint,
-    examTags: source.examTags,
+    level: source.level,
+    exam: source.exam,
     difficultyHint,
     styleHint,
     sourceText: source.sourceText,
@@ -223,6 +216,19 @@ export async function POST(request: Request) {
 
         if (!payload.store) continue;
 
+        const categorization = categorizePscQuestion({
+          text: finalQuestion.text.en,
+          optionsText: finalQuestion.options.map((o) => o.en).join(" \n "),
+          explanation: finalQuestion.explanation.en,
+          examCode: finalQuestion.examCode,
+          examName: finalQuestion.exam,
+          sourceRef: source.sourceRef ?? "",
+        });
+
+        const resolvedLevel = finalQuestion.level || categorization.level;
+        const resolvedExam = finalQuestion.exam || categorization.exam;
+        const resolvedExamCode = finalQuestion.examCode || "";
+
         const created = await Question.create({
           text: { en: finalQuestion.text.en, ml: finalQuestion.text.ml ?? "" },
           options: finalQuestion.options.map((o) => ({
@@ -240,7 +246,9 @@ export async function POST(request: Request) {
           tags: finalQuestion.tags ?? [],
           difficulty: finalQuestion.difficulty,
           questionStyle: finalQuestion.questionStyle,
-          examTags: normalizeExamTags(finalQuestion.examTags),
+          level: resolvedLevel,
+          exam: resolvedExam,
+          examCode: resolvedExamCode,
           sourceType: source.sourceType,
           sourceRef: source.sourceRef ?? "",
           status: "review",
@@ -264,10 +272,7 @@ export async function POST(request: Request) {
         }
 
         if (payload.generatePyqVariants && source.sourceType === "pyq") {
-          // Generate 3 variants (concept + reverse/indirect + negative) using the variants endpoint prompt spec.
-          // We keep only the first 3 to control cost while meeting the requirement.
           try {
-            // Reuse the existing variants prompt via OpenAI directly (exactly 5 variants).
             const { json: variantsJson } = await createOpenAIJsonResponse<unknown>({
               apiKey,
               model,
@@ -293,6 +298,19 @@ export async function POST(request: Request) {
                 continue;
               }
 
+              const variantCategorization = categorizePscQuestion({
+                text: v.text.en,
+                optionsText: v.options.map((o) => o.en).join(" \n "),
+                explanation: v.explanation.en,
+                examCode: v.examCode,
+                examName: v.exam,
+                sourceRef: source.sourceRef ?? "",
+              });
+
+              const vLevel = v.level || variantCategorization.level;
+              const vExam = v.exam || variantCategorization.exam;
+              const vExamCode = v.examCode || "";
+
               const createdVariant = await Question.create({
                 text: { en: v.text.en, ml: v.text.ml ?? "" },
                 options: v.options.map((o) => ({
@@ -307,7 +325,9 @@ export async function POST(request: Request) {
                 tags: v.tags ?? [],
                 difficulty: v.difficulty,
                 questionStyle: v.questionStyle,
-                examTags: normalizeExamTags(v.examTags),
+                level: vLevel,
+                exam: vExam,
+                examCode: vExamCode,
                 sourceType: "pyq_variant",
                 sourceRef: source.sourceRef ?? "",
                 parentQuestionId: created._id,

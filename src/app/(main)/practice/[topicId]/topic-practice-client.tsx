@@ -37,18 +37,23 @@ export default function TopicPracticeClient({
   topicId,
   subTopic,
   exam,
+  pscLevel,
+  pscExam,
 }: {
   topicId: string;
   subTopic?: string;
   exam?: string;
+  pscLevel?: string;
+  pscExam?: string;
 }) {
   const router = useRouter();
   const topicLabel = useMemo(() => {
     let label = topicId.replaceAll("_", " ").toUpperCase();
     if (subTopic) label += ` › ${subTopic.replaceAll("_", " ")}`;
     if (exam) label += ` [${exam.toUpperCase()}]`;
+    if (pscExam) label += ` | ${pscExam}`;
     return label;
-  }, [topicId, subTopic, exam]);
+  }, [topicId, subTopic, exam, pscExam]);
 
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -83,6 +88,8 @@ export default function TopicPracticeClient({
         const params = new URLSearchParams({ topic: topicId, limit: "20", page: "1" });
         if (subTopic) params.set("subTopic", subTopic);
         if (exam) params.set("exam", exam);
+        if (pscLevel && pscLevel !== "all") params.set("pscLevel", pscLevel);
+        if (pscExam) params.set("pscExam", pscExam);
         const res = await fetch(`/api/questions?${params}`);
         const data = await res.json();
 
@@ -107,7 +114,7 @@ export default function TopicPracticeClient({
           body: JSON.stringify({
             type: "topic",
             questionIds: q.map((qq) => qq._id),
-            context: { topicId },
+            context: { topicId, subTopic, exam, pscLevel, pscExam },
           }),
         });
         const sessionData = await sessionRes.json();
@@ -138,7 +145,7 @@ export default function TopicPracticeClient({
     setQuestions([]);
 
     loadTopicPractice();
-  }, [topicId, subTopic, exam]);
+  }, [topicId, subTopic, exam, pscLevel, pscExam]);
 
   const submitAnswer = useCallback(async () => {
     if (!selectedOption || !sessionId || submitting) return;

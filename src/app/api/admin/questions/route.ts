@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import { categorizePscQuestion } from "@/lib/examfilter/categorize";
+import { LEVEL_NAMES } from "@/lib/db/models/Level";
 
 function escapeRegex(input: string) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -19,6 +21,7 @@ export async function GET(request: Request) {
   const limit = Number.isFinite(rawLimit) ? Math.min(200, Math.max(1, rawLimit)) : 20;
   const topic = searchParams.get("topic");
   const subTopic = searchParams.get("subTopic");
+  const level = searchParams.get("level");
   const exam = searchParams.get("exam");
   const verified = searchParams.get("verified");
   const search = searchParams.get("search");
@@ -28,7 +31,10 @@ export async function GET(request: Request) {
   const filter: Record<string, unknown> = {};
   if (topic) filter.topicId = topic;
   if (subTopic) filter.subTopic = subTopic;
-  if (exam) filter.examTags = exam;
+  if (level && (LEVEL_NAMES as readonly string[]).includes(level)) {
+    filter.level = level;
+  }
+  if (exam) filter.exam = exam;
   if (verified === "true") filter.isVerified = true;
   if (verified === "false") filter.isVerified = false;
   if (search) {
@@ -63,7 +69,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { text, options, correctOption, explanation, topicId, subTopic, tags, difficulty, examTags, pyq, questionStyle } = body;
+    const {
+      text, options, correctOption, explanation, topicId, subTopic, tags,
+      difficulty, pyq, questionStyle, level: bodyLevel, exam: bodyExam,
+      examCode: bodyExamCode,
+    } = body;
 
     // Validation
     if (!text?.en || !options || options.length !== 4 || !correctOption || !topicId) {
@@ -83,6 +93,21 @@ export async function POST(request: Request) {
 
     await connectDB();
 
+    // Auto-fill level/exam from examCode or categorize
+    const categorization = categorizePscQuestion({
+      text: text.en,
+      optionsText: Array.isArray(options) ? options.map((o: { en?: string }) => o?.en || "").join(" \n ") : "",
+      explanation: explanation?.en || "",
+      examCode: bodyExamCode,
+      examName: bodyExam || pyq?.exam,
+      sourceRef: typeof body?.sourceRef === "string" ? body.sourceRef : undefined,
+    });
+
+    // Priority: explicit body > categorization
+    const resolvedLevel = bodyLevel || categorization.level;
+    const resolvedExam = bodyExam || categorization.exam;
+    const resolvedExamCode = bodyExamCode || "";
+
     const question = await Question.create({
       text: { en: text.en, ml: text.ml || "" },
       options: options.map((o: { key: string; en: string; ml?: string }) => ({
@@ -97,7 +122,9 @@ export async function POST(request: Request) {
       tags: tags || [],
       difficulty: difficulty || 2,
       questionStyle: questionStyle || "direct",
-      examTags: examTags || [],
+      level: resolvedLevel,
+      exam: resolvedExam,
+      examCode: resolvedExamCode,
       pyq: pyq || undefined,
       isVerified: true, // Admin-created = auto-verified
       createdBy: guard.userId,

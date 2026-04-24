@@ -2,18 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
-
-type ExamTag = "ldc" | "lgs" | "degree" | "police";
-
-function normalizeExamTag(value: string | null): ExamTag | null {
-  if (!value) return null;
-  const v = value.toLowerCase();
-  if (v === "ldc") return "ldc";
-  if (v === "lgs") return "lgs";
-  if (v === "degree" || v === "degree_level") return "degree";
-  if (v === "police") return "police";
-  return null;
-}
+import { LEVEL_NAMES } from "@/lib/db/models/Level";
 
 export async function GET(request: Request) {
   try {
@@ -26,7 +15,8 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const examTag = normalizeExamTag(searchParams.get("exam"));
+    const level = searchParams.get("level");
+    const exam = searchParams.get("exam");
     const yearParam = searchParams.get("year");
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
     const year = yearParam ? parseInt(yearParam, 10) : null;
@@ -38,7 +28,10 @@ export async function GET(request: Request) {
       sourceType: { $in: ["pyq", "pyq_variant"] },
     };
 
-    if (examTag) match.examTags = examTag;
+    if (level && (LEVEL_NAMES as readonly string[]).includes(level)) {
+      match.level = level;
+    }
+    if (exam && exam.length <= 128) match.exam = exam;
     if (year) match["pyq.year"] = year;
 
     const questions = await Question.aggregate([
@@ -50,7 +43,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: questions,
-      meta: { limit, exam: examTag, year: year || undefined },
+      meta: { limit, level: level || undefined, exam: exam || undefined, year: year || undefined },
     });
   } catch (error) {
     console.error("PYQ error:", error);
@@ -60,4 +53,3 @@ export async function GET(request: Request) {
     );
   }
 }
-
