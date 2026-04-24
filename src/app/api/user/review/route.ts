@@ -91,7 +91,7 @@ export async function GET(request: Request) {
     const questions = questionIds.length
       ? await Question.find(
           { _id: { $in: questionIds } },
-          { text: 1, options: 1, correctOption: 1, explanation: 1, topicId: 1, subTopic: 1, difficulty: 1, questionStyle: 1 }
+          { text: 1, options: 1, answer: 1, explanation: 1, topicId: 1, subtopicId: 1, difficulty: 1, questionStyle: 1 }
         ).lean()
       : [];
     const byId = new Map<string, (typeof questions)[number]>(questions.map((q) => [String(q._id), q]));
@@ -104,10 +104,10 @@ export async function GET(request: Request) {
           _id: unknown;
           text: { en: string; ml: string };
           options: Array<{ key: string; en: string; ml: string }>;
-          correctOption: "A" | "B" | "C" | "D";
+          answer: "A" | "B" | "C" | "D";
           explanation: { en: string; ml: string };
           topicId: string;
-          subTopic?: string;
+          subtopicId?: unknown;
           difficulty?: number;
           questionStyle?: string;
         };
@@ -115,10 +115,10 @@ export async function GET(request: Request) {
           _id: qq._id,
           text: qq.text,
           options: qq.options,
-          correctOption: qq.correctOption,
+          correctOption: qq.answer,
           explanation: qq.explanation,
           topicId: qq.topicId,
-          subTopic: qq.subTopic,
+          subTopic: qq.subtopicId ? String(qq.subtopicId) : "",
           difficulty: qq.difficulty,
           questionStyle: qq.questionStyle,
         };

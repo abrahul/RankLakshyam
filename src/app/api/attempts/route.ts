@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     }
 
     // Get correct answer
-    const question = await Question.findById(questionId, { correctOption: 1, explanation: 1, topicId: 1, difficulty: 1, questionStyle: 1 });
+    const question = await Question.findById(questionId, { answer: 1, explanation: 1, topicId: 1, difficulty: 1, questionStyle: 1 });
     if (!question) {
       return NextResponse.json(
         { success: false, error: { code: "QUESTION_NOT_FOUND", message: "Question not found", statusCode: 404 } },
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const isCorrect = selectedOption === question.correctOption;
+    const isCorrect = selectedOption === question.answer;
 
     // Write attempt
     const attemptPromise = Attempt.create({
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       sessionId,
       questionId,
       selectedOption,
-      correctOption: question.correctOption,
+      correctOption: question.answer,
       isCorrect,
       timeTakenSec,
       topicId: question.topicId,
@@ -350,10 +350,10 @@ export async function POST(request: Request) {
             (qid) => !attemptByQuestionId.has(String(qid))
           );
           const missingCorrect = missingIds.length
-            ? await Question.find({ _id: { $in: missingIds } }, { correctOption: 1 }).lean()
+            ? await Question.find({ _id: { $in: missingIds } }, { answer: 1 }).lean()
             : [];
           const correctById = new Map<string, string>(
-            missingCorrect.map((q) => [String(q._id), String((q as { correctOption?: string }).correctOption)])
+            missingCorrect.map((q) => [String(q._id), String((q as { answer?: string }).answer)])
           );
 
           const questions = fullSession.questionIds.map((qid) => {
@@ -417,7 +417,7 @@ export async function POST(request: Request) {
       success: true,
       data: {
         isCorrect,
-        correctOption: question.correctOption,
+        correctOption: question.answer,
         explanation: question.explanation,
         isComplete: isLastQuestion,
         progress: { current: newIndex, total: testSession.totalQuestions, correctCount: newCorrectCount },

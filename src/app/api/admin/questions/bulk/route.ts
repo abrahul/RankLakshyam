@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
-import { categorizePscQuestion } from "@/lib/examfilter/categorize";
+import Topic from "@/lib/db/models/Topic";
 
 // POST bulk import questions
 export async function POST(request: Request) {
@@ -34,7 +35,8 @@ export async function POST(request: Request) {
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       try {
-        if (!q.text?.en || !q.options || q.options.length !== 4 || !q.correctOption || !q.topicId) {
+        const resolvedAnswer = q.correctOption || q.answer;
+        if (!q.text?.en || !q.options || q.options.length !== 4 || !resolvedAnswer || !q.topicId) {
           results.errors.push(`Q${i + 1}: Missing required fields`);
           results.skipped++;
           continue;
@@ -47,35 +49,37 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const categorization = categorizePscQuestion({
-          text: q.text?.en,
-          optionsText: Array.isArray(q.options) ? q.options.map((o: { en?: string }) => o?.en || "").join(" \n ") : "",
-          explanation: q.explanation?.en,
-          examCode: q.examCode,
-          examName: q.exam || q.pyq?.exam,
-          sourceRef: q.sourceRef,
-        });
-
-        // Priority: explicit fields > categorization
-        const resolvedLevel = q.level || categorization.level;
-        const resolvedExam = q.exam || categorization.exam;
-        const resolvedExamCode = q.examCode || "";
+        const topic = await Topic.findById(String(q.topicId)).select({ categoryId: 1 }).lean();
+        if (!topic?.categoryId) {
+          results.errors.push(`Q${i + 1}: Invalid topicId (no category linked)`);
+          results.skipped++;
+          continue;
+        }
+        const resolvedSubtopicId =
+          q.subtopicId && mongoose.isValidObjectId(q.subtopicId)
+            ? new mongoose.Types.ObjectId(q.subtopicId)
+            : undefined;
+        const resolvedExamTags = Array.isArray(q.examTags)
+          ? q.examTags
+              .filter((id: unknown) => typeof id === "string" && mongoose.isValidObjectId(id))
+              .map((id: string) => new mongoose.Types.ObjectId(id))
+          : [];
 
         await Question.create({
           text: { en: q.text.en, ml: q.text.ml || "" },
           options: q.options.map((o: { key: string; en: string; ml?: string }) => ({
             key: o.key, en: o.en, ml: o.ml || "",
           })),
-          correctOption: q.correctOption,
+          answer: resolvedAnswer,
           explanation: { en: q.explanation?.en || "", ml: q.explanation?.ml || "" },
+          categoryId: topic.categoryId,
           topicId: q.topicId,
-          subTopic: q.subTopic || "",
+          subtopicId: resolvedSubtopicId,
+          examTags: resolvedExamTags,
           tags: q.tags || [],
           difficulty: q.difficulty || 2,
+          language: q.language === "ml" || q.language === "mixed" ? q.language : "en",
           questionStyle: q.questionStyle || "direct",
-          level: resolvedLevel,
-          exam: resolvedExam,
-          examCode: resolvedExamCode,
           pyq: q.pyq || undefined,
           isVerified: q.isVerified ?? true,
           createdBy: guard.userId,

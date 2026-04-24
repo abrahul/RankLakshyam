@@ -43,10 +43,9 @@ export async function GET(
       {
         text: 1,
         options: 1,
-        correctOption: 1,
         explanation: 1,
         topicId: 1,
-        subTopic: 1,
+        subtopicId: 1,
         difficulty: 1,
         questionStyle: 1,
       }
@@ -73,7 +72,7 @@ export async function GET(
               options: question.options,
               explanation: question.explanation,
               topicId: question.topicId,
-              subTopic: question.subTopic,
+              subTopic: (question as { subtopicId?: unknown }).subtopicId ? String((question as { subtopicId?: unknown }).subtopicId) : "",
               difficulty: question.difficulty,
               questionStyle: (question as { questionStyle?: string }).questionStyle,
             }

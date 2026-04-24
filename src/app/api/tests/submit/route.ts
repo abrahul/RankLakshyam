@@ -55,10 +55,10 @@ export async function POST(request: Request) {
 
     const missingIds = testSession.questionIds.filter((qid) => !attemptByQuestionId.has(String(qid)));
     const missingCorrect = missingIds.length
-      ? await Question.find({ _id: { $in: missingIds } }, { correctOption: 1 }).lean()
+      ? await Question.find({ _id: { $in: missingIds } }, { answer: 1 }).lean()
       : [];
     const correctById = new Map<string, string>(
-      missingCorrect.map((q) => [String(q._id), String((q as { correctOption?: string }).correctOption)])
+      missingCorrect.map((q) => [String(q._id), String((q as { answer?: string }).answer)])
     );
 
     const questions = testSession.questionIds.map((qid) => {
@@ -130,4 +130,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

@@ -1,23 +1,24 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import type { LevelName } from "@/lib/db/models/Level";
 
 export interface IQuestion extends Document {
   _id: mongoose.Types.ObjectId;
   text: { en: string; ml: string };
   options: Array<{ key: "A" | "B" | "C" | "D"; en: string; ml: string }>;
-  correctOption: "A" | "B" | "C" | "D";
+  answer: "A" | "B" | "C" | "D";
+  // Back-compat for existing UI/routes while migrating
+  correctOption?: "A" | "B" | "C" | "D";
   explanation: { en: string; ml: string };
   optionWhy?: Record<"A" | "B" | "C" | "D", { en: string; ml: string }>;
+  categoryId: mongoose.Types.ObjectId;
   topicId: string;
-  subTopic: string;
+  subtopicId?: mongoose.Types.ObjectId;
+  // Back-compat alias (legacy name)
+  subTopic?: mongoose.Types.ObjectId;
+  examTags: mongoose.Types.ObjectId[];
   tags: string[];
   difficulty: 1 | 2 | 3 | 4 | 5;
+  language: "en" | "ml" | "mixed";
   questionStyle: "direct" | "concept" | "statement" | "negative" | "indirect";
-
-  // ── New category fields (replacing examTags) ──
-  level: LevelName;
-  exam: string;
-  examCode: string;
 
   pyq?: { exam: string; year: number; questionNumber: number };
   sourceType?: "pyq" | "pyq_variant" | "institute" | "internet";
@@ -47,10 +48,11 @@ const QuestionSchema = new Schema<IQuestion>(
         ml: { type: String, default: "" },
       },
     ],
-    correctOption: {
+    answer: {
       type: String,
       enum: ["A", "B", "C", "D"],
       required: true,
+      alias: "correctOption",
     },
     explanation: {
       en: { type: String, default: "" },
@@ -74,24 +76,18 @@ const QuestionSchema = new Schema<IQuestion>(
         ml: { type: String, default: "" },
       },
     },
+    categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true, index: true },
     topicId: { type: String, required: true },
-    subTopic: { type: String, default: "" },
+    subtopicId: { type: Schema.Types.ObjectId, ref: "SubTopic", default: null, alias: "subTopic" },
+    examTags: [{ type: Schema.Types.ObjectId, ref: "Exam" }],
     tags: [String],
     difficulty: { type: Number, min: 1, max: 5, default: 2 },
+    language: { type: String, enum: ["en", "ml", "mixed"], default: "en" },
     questionStyle: {
       type: String,
       enum: ["direct", "concept", "statement", "negative", "indirect"],
       default: "direct",
     },
-
-    // ── New category fields ──
-    level: {
-      type: String,
-      enum: ["10th_level", "plus2_level", "degree_level", "other_exams"],
-      default: "10th_level",
-    },
-    exam: { type: String, default: "" },
-    examCode: { type: String, default: "" },
 
     pyq: {
       exam: String,
@@ -121,9 +117,9 @@ const QuestionSchema = new Schema<IQuestion>(
 );
 
 // ── Indexes ──
-QuestionSchema.index({ topicId: 1, difficulty: 1, isVerified: 1 });
-QuestionSchema.index({ topicId: 1, subTopic: 1, difficulty: 1 });
-QuestionSchema.index({ topicId: 1, questionStyle: 1, difficulty: 1 });
+QuestionSchema.index({ categoryId: 1, topicId: 1, difficulty: 1, isVerified: 1 });
+QuestionSchema.index({ categoryId: 1, topicId: 1, subtopicId: 1, difficulty: 1 });
+QuestionSchema.index({ categoryId: 1, topicId: 1, questionStyle: 1, difficulty: 1 });
 QuestionSchema.index({ status: 1, createdAt: -1 });
 QuestionSchema.index({ sourceType: 1, parentQuestionId: 1 });
 QuestionSchema.index({ "pyq.exam": 1, "pyq.year": -1, "pyq.questionNumber": 1 });
@@ -131,10 +127,8 @@ QuestionSchema.index({ tags: 1 });
 QuestionSchema.index({ isVerified: 1, createdAt: -1 });
 QuestionSchema.index({ "text.en": "text", "text.ml": "text" });
 
-// New category indexes
-QuestionSchema.index({ examCode: 1 });
-QuestionSchema.index({ level: 1, exam: 1 });
-QuestionSchema.index({ level: 1, isVerified: 1 });
+QuestionSchema.index({ examTags: 1 });
+QuestionSchema.index({ categoryId: 1, examTags: 1 });
 
 const Question: Model<IQuestion> =
   mongoose.models.Question ||

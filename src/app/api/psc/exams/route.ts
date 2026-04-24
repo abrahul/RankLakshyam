@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
-import Level from "@/lib/db/models/Level";
+import Category from "@/lib/db/models/Category";
 import Exam from "@/lib/db/models/Exam";
 
 // GET /api/psc/exams — returns exams from the database, optionally filtered by level name
@@ -15,39 +15,38 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const levelParam = searchParams.get("level");
+  const categoryParam = searchParams.get("category") || searchParams.get("level");
 
   await connectDB();
 
-  if (levelParam) {
-    // Return exams for a specific level
-    const level = await Level.findOne({ name: levelParam }).lean();
-    if (!level) {
-      return NextResponse.json({ success: true, data: { level: levelParam, exams: [] } });
+  if (categoryParam) {
+    const category = await Category.findOne({ slug: categoryParam }).lean();
+    if (!category) {
+      return NextResponse.json({ success: true, data: { category: categoryParam, exams: [] } });
     }
 
-    const exams = await Exam.find({ levelId: level._id }).sort({ name: 1 }).lean();
+    const exams = await Exam.find({ categoryId: category._id }).sort({ name: 1 }).lean();
     const mapped = exams.map((e) => ({ exam: e.name, code: e.code || "" }));
 
-    return NextResponse.json({ success: true, data: { level: levelParam, exams: mapped } });
+    return NextResponse.json({ success: true, data: { category: categoryParam, exams: mapped } });
   }
 
-  // Return all exams grouped by level
-  const levels = await Level.find({}).sort({ sortOrder: 1 }).lean();
+  // Return all exams grouped by category slug
+  const categories = await Category.find({}).sort({ sortOrder: 1 }).lean();
   const allExams = await Exam.find({}).sort({ name: 1 }).lean();
 
   const grouped: Record<string, Array<{ exam: string; code: string }>> = {};
-  const levelIdToName: Record<string, string> = {};
+  const categoryIdToSlug: Record<string, string> = {};
 
-  for (const level of levels) {
-    levelIdToName[String(level._id)] = level.name;
-    grouped[level.name] = [];
+  for (const c of categories) {
+    categoryIdToSlug[String(c._id)] = c.slug;
+    grouped[c.slug] = [];
   }
 
   for (const exam of allExams) {
-    const levelName = levelIdToName[String(exam.levelId)];
-    if (levelName && grouped[levelName]) {
-      grouped[levelName].push({ exam: exam.name, code: exam.code || "" });
+    const slug = categoryIdToSlug[String(exam.categoryId)];
+    if (slug && grouped[slug]) {
+      grouped[slug].push({ exam: exam.name, code: exam.code || "" });
     }
   }
 

@@ -3,7 +3,9 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
-import { categorizePscQuestion } from "@/lib/examfilter/categorize";
+import Topic from "@/lib/db/models/Topic";
+import Exam from "@/lib/db/models/Exam";
+import mongoose from "mongoose";
 import {
   GENERATOR_SYSTEM_PROMPT,
   VALIDATOR_SYSTEM_PROMPT,
@@ -216,18 +218,24 @@ export async function POST(request: Request) {
 
         if (!payload.store) continue;
 
-        const categorization = categorizePscQuestion({
-          text: finalQuestion.text.en,
-          optionsText: finalQuestion.options.map((o) => o.en).join(" \n "),
-          explanation: finalQuestion.explanation.en,
-          examCode: finalQuestion.examCode,
-          examName: finalQuestion.exam,
-          sourceRef: source.sourceRef ?? "",
-        });
+        const topic = await Topic.findById(finalQuestion.topicId).select({ categoryId: 1 }).lean();
+        const categoryId = topic?.categoryId;
+        if (!categoryId) {
+          report.skippedInvalid++;
+          continue;
+        }
 
-        const resolvedLevel = finalQuestion.level || categorization.level;
-        const resolvedExam = finalQuestion.exam || categorization.exam;
-        const resolvedExamCode = finalQuestion.examCode || "";
+        // Best-effort: map examCode/exam name to an Exam under the topic's category
+        let examTags: mongoose.Types.ObjectId[] = [];
+        const examCode = String(finalQuestion.examCode || "").trim();
+        const examName = String(finalQuestion.exam || "").trim();
+        if (examCode || examName) {
+          const examDoc = await Exam.findOne({
+            categoryId,
+            ...(examCode ? { code: examCode } : { name: examName }),
+          }).select({ _id: 1 }).lean();
+          if (examDoc?._id) examTags = [examDoc._id as unknown as mongoose.Types.ObjectId];
+        }
 
         const created = await Question.create({
           text: { en: finalQuestion.text.en, ml: finalQuestion.text.ml ?? "" },
@@ -236,19 +244,22 @@ export async function POST(request: Request) {
             en: o.en,
             ml: o.ml ?? "",
           })),
-          correctOption: finalQuestion.correctOption,
+          answer: finalQuestion.correctOption,
           explanation: {
             en: finalQuestion.explanation.en,
             ml: finalQuestion.explanation.ml,
           },
+          categoryId,
           topicId: finalQuestion.topicId,
-          subTopic: finalQuestion.subTopic ?? "",
+          subtopicId:
+            finalQuestion.subTopic && mongoose.isValidObjectId(finalQuestion.subTopic)
+              ? new mongoose.Types.ObjectId(finalQuestion.subTopic)
+              : undefined,
+          examTags,
           tags: finalQuestion.tags ?? [],
           difficulty: finalQuestion.difficulty,
+          language: "en",
           questionStyle: finalQuestion.questionStyle,
-          level: resolvedLevel,
-          exam: resolvedExam,
-          examCode: resolvedExamCode,
           sourceType: source.sourceType,
           sourceRef: source.sourceRef ?? "",
           status: "review",
@@ -298,18 +309,16 @@ export async function POST(request: Request) {
                 continue;
               }
 
-              const variantCategorization = categorizePscQuestion({
-                text: v.text.en,
-                optionsText: v.options.map((o) => o.en).join(" \n "),
-                explanation: v.explanation.en,
-                examCode: v.examCode,
-                examName: v.exam,
-                sourceRef: source.sourceRef ?? "",
-              });
-
-              const vLevel = v.level || variantCategorization.level;
-              const vExam = v.exam || variantCategorization.exam;
-              const vExamCode = v.examCode || "";
+              let variantExamTags: mongoose.Types.ObjectId[] = [];
+              const vExamCode = String(v.examCode || "").trim();
+              const vExamName = String(v.exam || "").trim();
+              if (vExamCode || vExamName) {
+                const examDoc = await Exam.findOne({
+                  categoryId,
+                  ...(vExamCode ? { code: vExamCode } : { name: vExamName }),
+                }).select({ _id: 1 }).lean();
+                if (examDoc?._id) variantExamTags = [examDoc._id as unknown as mongoose.Types.ObjectId];
+              }
 
               const createdVariant = await Question.create({
                 text: { en: v.text.en, ml: v.text.ml ?? "" },
@@ -318,16 +327,19 @@ export async function POST(request: Request) {
                   en: o.en,
                   ml: o.ml ?? "",
                 })),
-                correctOption: v.correctOption,
+                answer: v.correctOption,
                 explanation: { en: v.explanation.en, ml: v.explanation.ml },
+                categoryId,
                 topicId: v.topicId,
-                subTopic: v.subTopic ?? "",
+                subtopicId:
+                  v.subTopic && mongoose.isValidObjectId(v.subTopic)
+                    ? new mongoose.Types.ObjectId(v.subTopic)
+                    : undefined,
+                examTags: variantExamTags,
                 tags: v.tags ?? [],
                 difficulty: v.difficulty,
+                language: "en",
                 questionStyle: v.questionStyle,
-                level: vLevel,
-                exam: vExam,
-                examCode: vExamCode,
                 sourceType: "pyq_variant",
                 sourceRef: source.sourceRef ?? "",
                 parentQuestionId: created._id,

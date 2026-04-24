@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
-import { categorizePscQuestion } from "@/lib/examfilter/categorize";
+import Topic from "@/lib/db/models/Topic";
+import Exam from "@/lib/db/models/Exam";
 import {
   GENERATOR_SYSTEM_PROMPT,
   HARD_CONSTRAINTS,
@@ -86,21 +88,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, data: { question: parsed } });
     }
 
-    const categorization = categorizePscQuestion({
-      text: parsed.text.en,
-      optionsText: parsed.options.map((o) => o.en).join(" \n "),
-      explanation: parsed.explanation.en,
-      examCode: parsed.examCode,
-      examName: parsed.exam,
-      sourceRef: typeof sourceRef === "string" ? sourceRef : "",
-    });
-
-    // Priority: AI-generated fields > categorization
-    const resolvedLevel = parsed.level || categorization.level;
-    const resolvedExam = parsed.exam || categorization.exam;
-    const resolvedExamCode = parsed.examCode || "";
-
     await connectDB();
+
+    const topic = await Topic.findById(parsed.topicId).select({ categoryId: 1 }).lean();
+    if (!topic?.categoryId) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_INPUT", message: "Invalid topicId (no category linked)", statusCode: 400 } },
+        { status: 400 }
+      );
+    }
+
+    let examTags: mongoose.Types.ObjectId[] = [];
+    const examCode = String(parsed.examCode || "").trim();
+    const examName = String(parsed.exam || "").trim();
+    if (examCode || examName) {
+      const examDoc = await Exam.findOne({
+        categoryId: topic.categoryId,
+        ...(examCode ? { code: examCode } : { name: examName }),
+      }).select({ _id: 1 }).lean();
+      if (examDoc?._id) examTags = [examDoc._id as unknown as mongoose.Types.ObjectId];
+    }
+
     const created = await Question.create({
       text: { en: parsed.text.en, ml: parsed.text.ml ?? "" },
       options: parsed.options.map((o) => ({
@@ -108,16 +116,19 @@ export async function POST(request: Request) {
         en: o.en,
         ml: o.ml ?? "",
       })),
-      correctOption: parsed.correctOption,
+      answer: parsed.correctOption,
       explanation: { en: parsed.explanation.en, ml: parsed.explanation.ml },
+      categoryId: topic.categoryId,
       topicId: parsed.topicId,
-      subTopic: parsed.subTopic ?? "",
+      subtopicId:
+        parsed.subTopic && mongoose.isValidObjectId(parsed.subTopic)
+          ? new mongoose.Types.ObjectId(parsed.subTopic)
+          : undefined,
+      examTags,
       tags: parsed.tags ?? [],
       difficulty: parsed.difficulty,
+      language: "en",
       questionStyle: parsed.questionStyle,
-      level: resolvedLevel,
-      exam: resolvedExam,
-      examCode: resolvedExamCode,
       sourceType:
         sourceType === "pyq" ||
         sourceType === "pyq_variant" ||

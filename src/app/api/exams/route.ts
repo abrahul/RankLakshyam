@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Exam from "@/lib/db/models/Exam";
-import Level from "@/lib/db/models/Level";
+import Category from "@/lib/db/models/Category";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 
 // GET /api/exams — fetch exams, optionally filtered by level
@@ -17,26 +17,26 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const levelId = searchParams.get("levelId");
-    const levelName = searchParams.get("level"); // convenience: filter by level name
+    const categoryId = searchParams.get("categoryId");
+    const categorySlug = searchParams.get("category"); // convenience: filter by category slug
 
     await connectDB();
 
     const filter: Record<string, unknown> = {};
 
-    if (levelId) {
-      filter.levelId = levelId;
-    } else if (levelName) {
-      const level = await Level.findOne({ name: levelName }).lean();
-      if (level) {
-        filter.levelId = level._id;
+    if (categoryId) {
+      filter.categoryId = categoryId;
+    } else if (categorySlug) {
+      const category = await Category.findOne({ slug: categorySlug }).lean();
+      if (category) {
+        filter.categoryId = category._id;
       } else {
         return NextResponse.json({ success: true, data: [] });
       }
     }
 
     const exams = await Exam.find(filter)
-      .populate("levelId", "name displayName")
+      .populate("categoryId", "slug name sortOrder")
       .sort({ name: 1 })
       .lean();
 
@@ -57,27 +57,27 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, code, levelId, note } = body;
+    const { name, code, categoryId, note } = body;
 
-    if (!name || !levelId) {
+    if (!name || !categoryId) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "name and levelId are required", statusCode: 400 } },
+        { success: false, error: { code: "INVALID_INPUT", message: "name and categoryId are required", statusCode: 400 } },
         { status: 400 }
       );
     }
 
     await connectDB();
 
-    // Validate levelId exists
-    const level = await Level.findById(levelId).lean();
-    if (!level) {
+    // Validate categoryId exists
+    const category = await Category.findById(categoryId).lean();
+    if (!category) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "Invalid levelId", statusCode: 400 } },
+        { success: false, error: { code: "INVALID_INPUT", message: "Invalid categoryId", statusCode: 400 } },
         { status: 400 }
       );
     }
 
-    const exam = await Exam.create({ name, code: code || null, levelId, note: note || "" });
+    const exam = await Exam.create({ name, code: code || null, categoryId, note: note || "" });
 
     return NextResponse.json({ success: true, data: exam }, { status: 201 });
   } catch (error) {

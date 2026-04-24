@@ -35,10 +35,10 @@ export async function GET(
     // Get per-subtopic question counts
     const subTopicCounts = await Question.aggregate([
       { $match: { topicId: id, isVerified: true } },
-      { $group: { _id: "$subTopic", count: { $sum: 1 } } },
+      { $group: { _id: "$subtopicId", count: { $sum: 1 } } },
     ]);
     const countMap = Object.fromEntries(
-      subTopicCounts.map((s: { _id: string; count: number }) => [s._id, s.count])
+      subTopicCounts.map((s: { _id: unknown; count: number }) => [String(s._id), s.count])
     );
 
     return NextResponse.json({
@@ -48,7 +48,7 @@ export async function GET(
         name: topic.name,
         icon: topic.icon,
         color: topic.color,
-        levelId: topic.levelId || null,
+        categoryId: topic.categoryId || null,
         subTopics: subtopics.map((st) => ({
           id: String(st._id),
           name: st.name,

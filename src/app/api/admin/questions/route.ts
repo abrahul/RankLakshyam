@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
-import { categorizePscQuestion } from "@/lib/examfilter/categorize";
-import { LEVEL_NAMES } from "@/lib/db/models/Level";
+import Topic from "@/lib/db/models/Topic";
 
 function escapeRegex(input: string) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -19,22 +19,26 @@ export async function GET(request: Request) {
   const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
   const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
   const limit = Number.isFinite(rawLimit) ? Math.min(200, Math.max(1, rawLimit)) : 20;
-  const topic = searchParams.get("topic");
-  const subTopic = searchParams.get("subTopic");
-  const level = searchParams.get("level");
-  const exam = searchParams.get("exam");
+  const categoryId = searchParams.get("categoryId");
+  const topicId = searchParams.get("topicId") || searchParams.get("topic");
+  const subtopicId = searchParams.get("subtopicId") || searchParams.get("subTopic");
+  const examId = searchParams.get("examId");
   const verified = searchParams.get("verified");
   const search = searchParams.get("search");
 
   await connectDB();
 
   const filter: Record<string, unknown> = {};
-  if (topic) filter.topicId = topic;
-  if (subTopic) filter.subTopic = subTopic;
-  if (level && (LEVEL_NAMES as readonly string[]).includes(level)) {
-    filter.level = level;
+  if (categoryId) {
+    if (mongoose.isValidObjectId(categoryId)) filter.categoryId = new mongoose.Types.ObjectId(categoryId);
   }
-  if (exam) filter.exam = exam;
+  if (topicId) filter.topicId = topicId;
+  if (subtopicId && mongoose.isValidObjectId(subtopicId)) {
+    filter.subtopicId = new mongoose.Types.ObjectId(subtopicId);
+  }
+  if (examId && mongoose.isValidObjectId(examId)) {
+    filter.examTags = new mongoose.Types.ObjectId(examId);
+  }
   if (verified === "true") filter.isVerified = true;
   if (verified === "false") filter.isVerified = false;
   if (search) {
@@ -70,43 +74,55 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      text, options, correctOption, explanation, topicId, subTopic, tags,
-      difficulty, pyq, questionStyle, level: bodyLevel, exam: bodyExam,
-      examCode: bodyExamCode,
+      text,
+      options,
+      correctOption,
+      answer,
+      explanation,
+      topicId,
+      subtopicId,
+      examTags,
+      tags,
+      difficulty,
+      language,
+      pyq,
+      questionStyle,
     } = body;
 
     // Validation
-    if (!text?.en || !options || options.length !== 4 || !correctOption || !topicId) {
+    const resolvedAnswer = (correctOption || answer) as string | undefined;
+    if (!text?.en || !options || options.length !== 4 || !resolvedAnswer || !topicId) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "text.en, 4 options, correctOption, and topicId are required", statusCode: 400 } },
+        { success: false, error: { code: "INVALID_INPUT", message: "text.en, 4 options, answer, and topicId are required", statusCode: 400 } },
         { status: 400 }
       );
     }
 
     const validKeys = ["A", "B", "C", "D"];
-    if (!validKeys.includes(correctOption)) {
+    if (!validKeys.includes(resolvedAnswer)) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "correctOption must be A, B, C, or D", statusCode: 400 } },
+        { success: false, error: { code: "INVALID_INPUT", message: "answer must be A, B, C, or D", statusCode: 400 } },
         { status: 400 }
       );
     }
 
     await connectDB();
 
-    // Auto-fill level/exam from examCode or categorize
-    const categorization = categorizePscQuestion({
-      text: text.en,
-      optionsText: Array.isArray(options) ? options.map((o: { en?: string }) => o?.en || "").join(" \n ") : "",
-      explanation: explanation?.en || "",
-      examCode: bodyExamCode,
-      examName: bodyExam || pyq?.exam,
-      sourceRef: typeof body?.sourceRef === "string" ? body.sourceRef : undefined,
-    });
-
-    // Priority: explicit body > categorization
-    const resolvedLevel = bodyLevel || categorization.level;
-    const resolvedExam = bodyExam || categorization.exam;
-    const resolvedExamCode = bodyExamCode || "";
+    // Derive category from topic (source of truth)
+    const topic = await Topic.findById(String(topicId)).select({ categoryId: 1 }).lean();
+    if (!topic?.categoryId) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_INPUT", message: "Invalid topicId (no category linked)", statusCode: 400 } },
+        { status: 400 }
+      );
+    }
+    const resolvedSubtopicId =
+      subtopicId && mongoose.isValidObjectId(subtopicId) ? new mongoose.Types.ObjectId(subtopicId) : undefined;
+    const resolvedExamTags = Array.isArray(examTags)
+      ? examTags
+          .filter((id: unknown) => typeof id === "string" && mongoose.isValidObjectId(id))
+          .map((id: string) => new mongoose.Types.ObjectId(id))
+      : [];
 
     const question = await Question.create({
       text: { en: text.en, ml: text.ml || "" },
@@ -115,16 +131,16 @@ export async function POST(request: Request) {
         en: o.en,
         ml: o.ml || "",
       })),
-      correctOption,
+      answer: resolvedAnswer,
       explanation: { en: explanation?.en || "", ml: explanation?.ml || "" },
+      categoryId: topic.categoryId,
       topicId,
-      subTopic: subTopic || "",
+      subtopicId: resolvedSubtopicId,
+      examTags: resolvedExamTags,
       tags: tags || [],
       difficulty: difficulty || 2,
+      language: language === "ml" || language === "mixed" ? language : "en",
       questionStyle: questionStyle || "direct",
-      level: resolvedLevel,
-      exam: resolvedExam,
-      examCode: resolvedExamCode,
       pyq: pyq || undefined,
       isVerified: true, // Admin-created = auto-verified
       createdBy: guard.userId,

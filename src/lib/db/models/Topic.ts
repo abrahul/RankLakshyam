@@ -5,7 +5,7 @@ export interface ITopic {
   name: { en: string; ml: string };
   icon: string;
   color: string;
-  levelId?: mongoose.Types.ObjectId;
+  categoryId?: mongoose.Types.ObjectId;
   dailyWeight: number;
   sortOrder: number;
   questionCount: number;
@@ -19,13 +19,13 @@ const TopicSchema = new Schema<ITopic>({
   },
   icon: { type: String, default: "📚" },
   color: { type: String, default: "#6366f1" },
-  levelId: { type: Schema.Types.ObjectId, ref: "Level" },
+  categoryId: { type: Schema.Types.ObjectId, ref: "Category" },
   dailyWeight: { type: Number, default: 2 },
   sortOrder: { type: Number, default: 0 },
   questionCount: { type: Number, default: 0 },
 });
 
-TopicSchema.index({ levelId: 1 });
+TopicSchema.index({ categoryId: 1 });
 
 const Topic: Model<ITopic> =
   mongoose.models.Topic || mongoose.model<ITopic>("Topic", TopicSchema);

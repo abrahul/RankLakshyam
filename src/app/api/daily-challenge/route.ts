@@ -180,7 +180,7 @@ export async function GET() {
         difficulty: 1,
         // Only include answer/explanation if user completed
         ...(existingSession?.status === "completed"
-          ? { correctOption: 1, explanation: 1 }
+          ? { answer: 1, explanation: 1 }
           : {}),
       }
     );
@@ -190,12 +190,17 @@ export async function GET() {
       questions.find((q) => q._id.toString() === id.toString())
     ).filter(Boolean);
 
+    const questionsForClient =
+      existingSession?.status === "completed"
+        ? orderedQuestions.map((q) => ({ ...q, correctOption: (q as { answer?: string }).answer }))
+        : orderedQuestions;
+
     return NextResponse.json({
       success: true,
       data: {
         date: today,
-        questions: orderedQuestions,
-        totalQuestions: orderedQuestions.length,
+        questions: questionsForClient,
+        totalQuestions: questionsForClient.length,
         existingSession: existingSession
           ? {
               id: existingSession._id,
