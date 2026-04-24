@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:reset": "npx tsx scripts/reset-db.ts",
+    "db:seed:categories": "npx tsx scripts/seed-categories.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.37.0",

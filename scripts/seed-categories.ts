@@ -11,10 +11,13 @@
  * Requires MONGODB_URI in .env.local
  */
 
-import "dotenv/config";
+import { loadEnvConfig } from "@next/env";
 import mongoose from "mongoose";
 import * as fs from "fs";
 import * as path from "path";
+
+// Load .env/.env.local the same way Next.js does (avoids requiring dotenv as a dependency).
+loadEnvConfig(process.cwd());
 
 // ── Inline schemas to avoid path alias issues in scripts ──
 
