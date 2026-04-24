@@ -38,7 +38,14 @@ TopicSchema.pre("save", function syncPrimaryCategory(next) {
 TopicSchema.index({ categoryId: 1 });
 TopicSchema.index({ categoryIds: 1 });
 
+const existingModel = mongoose.models.Topic as Model<ITopic> | undefined;
+const hasCategoryIdsPath = existingModel?.schema.path("categoryIds");
+
+if (existingModel && !hasCategoryIdsPath) {
+  delete mongoose.models.Topic;
+}
+
 const Topic: Model<ITopic> =
-  mongoose.models.Topic || mongoose.model<ITopic>("Topic", TopicSchema);
+  (mongoose.models.Topic as Model<ITopic> | undefined) || mongoose.model<ITopic>("Topic", TopicSchema);
 
 export default Topic;

@@ -30,7 +30,8 @@ function idFromName(input: string) {
 }
 
 function toggleSelection(list: string[], value: string) {
-  return list.includes(value) ? list.filter((entry) => entry !== value) : [...list, value];
+  const next = list.includes(value) ? list.filter((entry) => entry !== value) : [...list, value];
+  return [...new Set(next)];
 }
 
 export default function TopicsAdminPage() {
@@ -118,7 +119,7 @@ export default function TopicsAdminPage() {
           name: { en: newNameEn.trim(), ml: newNameMl.trim() },
           icon: newIcon,
           color: newColor,
-          categoryIds: newCategoryIds,
+          categoryIds: [...new Set(newCategoryIds)],
           dailyWeight: newDailyWeight,
           sortOrder: newSortOrder,
         }),
@@ -182,7 +183,7 @@ export default function TopicsAdminPage() {
           name: { en: editNameEn.trim(), ml: editNameMl.trim() },
           icon: editIcon,
           color: editColor,
-          categoryIds: editCategoryIds,
+          categoryIds: [...new Set(editCategoryIds)],
           dailyWeight: editDailyWeight,
           sortOrder: editSortOrder,
         }),
@@ -309,20 +310,31 @@ export default function TopicsAdminPage() {
                       </div>
                       <div>
                         <p className="text-xs text-surface-200/60 font-semibold mb-2">Categories</p>
-                        <div className="flex flex-wrap gap-2">
+                        <p className="text-[11px] text-surface-200/40 mb-2">
+                          Selected: {editCategoryIds.length > 0
+                            ? editCategoryIds
+                                .map((categoryId) => sortedCategories.find((category) => category._id === categoryId)?.name.en || categoryId)
+                                .join(", ")
+                            : "None"}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {sortedCategories.map((category) => (
-                            <button
+                            <label
                               key={category._id}
-                              type="button"
-                              onClick={() => setEditCategoryIds((current) => toggleSelection(current, category._id))}
-                              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                                 editCategoryIds.includes(category._id)
                                   ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
                                   : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
                               }`}
                             >
+                              <input
+                                type="checkbox"
+                                checked={editCategoryIds.includes(category._id)}
+                                onChange={() => setEditCategoryIds((current) => toggleSelection(current, category._id))}
+                                className="accent-primary-500"
+                              />
                               {category.name.en}
-                            </button>
+                            </label>
                           ))}
                         </div>
                       </div>
@@ -436,20 +448,31 @@ export default function TopicsAdminPage() {
             </div>
             <div>
               <p className="text-xs text-surface-200/60 font-semibold mb-2">Categories *</p>
-              <div className="flex flex-wrap gap-2">
+              <p className="text-[11px] text-surface-200/40 mb-2">
+                Selected: {newCategoryIds.length > 0
+                  ? newCategoryIds
+                      .map((categoryId) => sortedCategories.find((category) => category._id === categoryId)?.name.en || categoryId)
+                      .join(", ")
+                  : "None"}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {sortedCategories.map((category) => (
-                  <button
+                  <label
                     key={category._id}
-                    type="button"
-                    onClick={() => setNewCategoryIds((current) => toggleSelection(current, category._id))}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                       newCategoryIds.includes(category._id)
                         ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
                         : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
                     }`}
                   >
+                    <input
+                      type="checkbox"
+                      checked={newCategoryIds.includes(category._id)}
+                      onChange={() => setNewCategoryIds((current) => toggleSelection(current, category._id))}
+                      className="accent-primary-500"
+                    />
                     {category.name.en}
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
