@@ -48,49 +48,51 @@ interface AttemptResult {
   };
 }
 
-type PscLevel = "10th_level" | "plus2_level" | "degree_level" | "other_exams";
-type CategoryId = PscLevel | "all";
-type PscExamEntry = { exam: string; code: string; level?: PscLevel };
-
-type LevelRow = {
+interface CategoryRow {
   _id: string;
-  name: PscLevel;
-  displayName?: { en?: string; ml?: string };
+  slug: string;
+  name: { en: string; ml: string };
   sortOrder: number;
-};
-
-const DEFAULT_CATEGORIES: Array<{ id: CategoryId; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "10th_level", label: "10th" },
-  { id: "plus2_level", label: "12th" },
-  { id: "degree_level", label: "Degree" },
-  { id: "other_exams", label: "Others" },
-];
-
-function isPscLevel(value: string): value is PscLevel {
-  return value === "10th_level" || value === "plus2_level" || value === "degree_level" || value === "other_exams";
 }
 
+type CategoryFilter = string | "all";
+
+type ExamRow = {
+  _id: string;
+  name: string;
+  code: string | null;
+  categoryId?:
+    | string
+    | {
+        _id?: string;
+        slug?: string;
+        name?: { en?: string; ml?: string };
+      };
+};
+
+type ExamEntry = {
+  id: string;
+  exam: string;
+  code: string;
+  categoryId?: string;
+  categoryName?: string;
+};
+
 export default function PyqPracticeClient({
-  level: levelProp,
-  exam: examProp,
+  categoryId: categoryIdProp,
+  exam,
   year,
 }: {
-  level: string;
+  categoryId: string;
   exam: string;
   year: string;
 }) {
   const router = useRouter();
-
-  const level = (levelProp || "").trim();
-  const exam = (examProp || "").trim();
-
   const examLabel = useMemo(() => exam || "PYQ", [exam]);
 
-  // Picker state (used when no exam selected)
-  const [levels, setLevels] = useState<LevelRow[]>([]);
-  const [levelFilter, setLevelFilter] = useState<CategoryId>(() => (isPscLevel(level) ? level : "all"));
-  const [levelExams, setLevelExams] = useState<PscExamEntry[]>([]);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(categoryIdProp || "all");
+  const [categoryExams, setCategoryExams] = useState<ExamEntry[]>([]);
   const [examQuery, setExamQuery] = useState<string>(exam);
   const [examOpen, setExamOpen] = useState(false);
   const blurCloseTimer = useRef<number | null>(null);
@@ -100,79 +102,73 @@ export default function PyqPracticeClient({
   }, [exam]);
 
   useEffect(() => {
-    if (isPscLevel(level)) setLevelFilter(level);
-  }, [level]);
+    setCategoryFilter(categoryIdProp || "all");
+  }, [categoryIdProp]);
 
   useEffect(() => {
-    fetch("/api/levels")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setLevels(d.data || []);
+    fetch("/api/categories")
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) setCategories(data.data || []);
       })
       .catch(() => {});
   }, []);
 
-  const categories = useMemo(() => {
-    if (!levels.length) return DEFAULT_CATEGORIES;
-    const sorted = [...levels].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    return [
-      { id: "all" as const, label: "All" },
-      ...sorted.map((l) => ({
-        id: l.name,
-        label:
-          l.name === "10th_level"
-            ? "10th"
-            : l.name === "plus2_level"
-              ? "12th"
-              : l.name === "degree_level"
-                ? "Degree"
-                : "Others",
-      })),
-    ];
-  }, [levels]);
-
   useEffect(() => {
     async function fetchExams() {
       try {
-        const url = levelFilter === "all" ? "/api/exams" : `/api/exams?level=${levelFilter}`;
+        const url = categoryFilter === "all" ? "/api/exams" : `/api/exams?categoryId=${categoryFilter}`;
         const res = await fetch(url);
         const data = await res.json();
         if (!data.success) {
-          setLevelExams([]);
+          setCategoryExams([]);
           return;
         }
 
-        const list = Array.isArray(data.data) ? data.data : [];
-        const mapped: PscExamEntry[] = list.map((raw: unknown) => {
-          const e = raw as { name?: unknown; code?: unknown; levelId?: unknown };
-          const levelId = e.levelId as { name?: unknown } | undefined;
+        const mapped: ExamEntry[] = (Array.isArray(data.data) ? data.data : []).map((raw: ExamRow) => {
+          const categoryObject = typeof raw.categoryId === "object" && raw.categoryId ? raw.categoryId : undefined;
           return {
-            exam: typeof e.name === "string" ? e.name : String(e.name || ""),
-            code: typeof e.code === "string" ? e.code : String(e.code || ""),
-            level: typeof levelId?.name === "string" ? (levelId.name as PscLevel) : undefined,
+            id: raw._id,
+            exam: raw.name,
+            code: raw.code || "",
+            categoryId: categoryObject?._id || (typeof raw.categoryId === "string" ? raw.categoryId : undefined),
+            categoryName: categoryObject?.name?.en,
           };
         });
-        setLevelExams(mapped.filter((e) => e.exam));
+        setCategoryExams(mapped.filter((entry) => entry.exam));
       } catch {
-        setLevelExams([]);
+        setCategoryExams([]);
       }
     }
-    fetchExams();
-  }, [levelFilter]);
+
+    void fetchExams();
+  }, [categoryFilter]);
+
+  const categoryButtons = useMemo(
+    () => [
+      { id: "all" as const, label: "All" },
+      ...categories
+        .slice()
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map((category) => ({ id: category._id, label: category.name.en })),
+    ],
+    [categories]
+  );
 
   const examSuggestions = useMemo(() => {
-    const q = examQuery.trim().toUpperCase();
-    if (q.length < 2) return [];
-    const matches = levelExams.filter((e) => `${e.exam} ${e.code} ${e.level ?? ""}`.toUpperCase().includes(q));
-    return matches.slice(0, 30);
-  }, [examQuery, levelExams]);
+    const query = examQuery.trim().toUpperCase();
+    if (query.length < 2) return [];
+    return categoryExams
+      .filter((entry) => `${entry.exam} ${entry.code} ${entry.categoryName ?? ""}`.toUpperCase().includes(query))
+      .slice(0, 30);
+  }, [examQuery, categoryExams]);
 
-  const pickExam = (picked: { level?: string; exam: string }) => {
-    const sp = new URLSearchParams();
-    if (picked.level && picked.level !== "all") sp.set("level", picked.level);
-    sp.set("exam", picked.exam);
-    if (year) sp.set("year", year);
-    router.push(`/practice/pyq?${sp.toString()}`);
+  const pickExam = (picked: { categoryId?: string; exam: string }) => {
+    const search = new URLSearchParams();
+    if (picked.categoryId && picked.categoryId !== "all") search.set("categoryId", picked.categoryId);
+    search.set("exam", picked.exam);
+    if (year) search.set("year", year);
+    router.push(`/practice/pyq?${search.toString()}`);
   };
 
   const [questions, setQuestions] = useState<QuestionData[]>([]);
@@ -194,14 +190,12 @@ export default function PyqPracticeClient({
     bonusXP: number;
   } | null>(null);
 
-  // Timer
   useEffect(() => {
     if (loading || selectedOption || showResults) return;
-    const interval = setInterval(() => setTimer((t) => t + 1), 1000);
+    const interval = setInterval(() => setTimer((value) => value + 1), 1000);
     return () => clearInterval(interval);
   }, [loading, selectedOption, showResults]);
 
-  // Load PYQ questions + create a session
   useEffect(() => {
     if (!exam) {
       setLoading(false);
@@ -213,7 +207,7 @@ export default function PyqPracticeClient({
         const url = new URL("/api/pyq", window.location.origin);
         url.searchParams.set("exam", exam);
         url.searchParams.set("limit", "20");
-        if (level && isPscLevel(level)) url.searchParams.set("level", level);
+        if (categoryIdProp) url.searchParams.set("categoryId", categoryIdProp);
         if (year) url.searchParams.set("year", year);
 
         const res = await fetch(url.toString());
@@ -225,23 +219,23 @@ export default function PyqPracticeClient({
           return;
         }
 
-        const q: QuestionData[] = data.data || [];
-        if (!q.length) {
+        const loadedQuestions: QuestionData[] = data.data || [];
+        if (!loadedQuestions.length) {
           setError("No PYQ questions available yet for this exam.");
           setLoading(false);
           return;
         }
 
-        setQuestions(q);
+        setQuestions(loadedQuestions);
 
         const sessionRes = await fetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type: "pyq",
-            questionIds: q.map((qq) => qq._id),
+            questionIds: loadedQuestions.map((question) => question._id),
             context: {
-              level: isPscLevel(level) ? level : undefined,
+              categoryId: categoryIdProp || undefined,
               exam,
               ...(year ? { pyqYear: parseInt(year, 10) } : {}),
             },
@@ -274,8 +268,8 @@ export default function PyqPracticeClient({
     setSessionId(null);
     setQuestions([]);
 
-    loadPyqPractice();
-  }, [exam, year, level]);
+    void loadPyqPractice();
+  }, [exam, year, categoryIdProp]);
 
   const submitAnswer = useCallback(async () => {
     if (!selectedOption || !sessionId || submitting) return;
@@ -299,7 +293,7 @@ export default function PyqPracticeClient({
         if (data.data.isComplete) setFinalResult(data.data);
       }
     } catch {
-      // Silent fail - user can retry
+      // silent
     } finally {
       setSubmitting(false);
     }
@@ -308,12 +302,12 @@ export default function PyqPracticeClient({
   const nextQuestion = () => {
     if (result?.isComplete) {
       if (finalResult?.gamification?.milestone) {
-        const m = finalResult.gamification.milestone;
+        const milestone = finalResult.gamification.milestone;
         setCelebration({
-          type: m.celebration,
-          title: m.title,
-          badgeIcon: m.badgeIcon || "🎉",
-          bonusXP: m.bonusXP,
+          type: milestone.celebration,
+          title: milestone.title,
+          badgeIcon: milestone.badgeIcon || "🎉",
+          bonusXP: milestone.bonusXP,
         });
       }
       setShowResults(true);
@@ -322,10 +316,9 @@ export default function PyqPracticeClient({
     setSelectedOption(null);
     setResult(null);
     setTimer(0);
-    setCurrentIndex((i) => i + 1);
+    setCurrentIndex((value) => value + 1);
   };
 
-  // If no exam selected, show picker (after hooks to keep hook order stable)
   if (!exam) {
     return (
       <div className="min-h-dvh px-4 pt-6 pb-24 animate-fade-in">
@@ -340,25 +333,23 @@ export default function PyqPracticeClient({
           <span className="text-xs text-surface-200/40">Previous Year</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-display)] mb-1">
-          Previous Year Papers
-        </h1>
+        <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-display)] mb-1">Previous Year Papers</h1>
         <p className="text-sm text-surface-200/60 mb-5">Pick a category and search an exam</p>
 
         <div className="mb-5">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {categories.map((c) => (
+            {categoryButtons.map((category) => (
               <button
-                key={c.id}
+                key={category.id}
                 type="button"
-                onClick={() => setLevelFilter(c.id)}
+                onClick={() => setCategoryFilter(category.id)}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  levelFilter === c.id
+                  categoryFilter === category.id
                     ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
                     : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
                 }`}
               >
-                {c.label}
+                {category.label}
               </button>
             ))}
           </div>
@@ -366,8 +357,8 @@ export default function PyqPracticeClient({
           <div className="relative mt-3">
             <input
               value={examQuery}
-              onChange={(e) => {
-                setExamQuery(e.target.value);
+              onChange={(event) => {
+                setExamQuery(event.target.value);
                 setExamOpen(true);
               }}
               onFocus={() => {
@@ -384,7 +375,7 @@ export default function PyqPracticeClient({
             {examQuery && (
               <button
                 type="button"
-                onMouseDown={(e) => e.preventDefault()}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setExamQuery("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-lg text-xs bg-white/5 text-surface-200/60 hover:bg-white/10"
               >
@@ -398,18 +389,18 @@ export default function PyqPracticeClient({
                   <div className="px-3 py-2 text-xs text-surface-200/40">No matches</div>
                 ) : (
                   <div className="max-h-72 overflow-auto">
-                    {examSuggestions.map((ex) => (
+                    {examSuggestions.map((entry) => (
                       <button
-                        key={`${ex.level ?? "x"}-${ex.code}-${ex.exam}`}
+                        key={entry.id}
                         type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => pickExam({ level: levelFilter !== "all" ? levelFilter : ex.level, exam: ex.exam })}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => pickExam({ categoryId: categoryFilter !== "all" ? categoryFilter : entry.categoryId, exam: entry.exam })}
                         className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors"
                       >
-                        <div className="text-sm text-white leading-snug">{ex.exam}</div>
+                        <div className="text-sm text-white leading-snug">{entry.exam}</div>
                         <div className="text-[11px] text-surface-200/50">
-                          {ex.code}
-                          {levelFilter === "all" && ex.level ? ` • ${ex.level.replaceAll("_", " ")}` : ""}
+                          {entry.code}
+                          {categoryFilter === "all" && entry.categoryName ? ` • ${entry.categoryName}` : ""}
                         </div>
                       </button>
                     ))}
@@ -420,15 +411,15 @@ export default function PyqPracticeClient({
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            {levelExams.slice(0, 6).map((ex) => (
+            {categoryExams.slice(0, 6).map((entry) => (
               <button
-                key={`${ex.level ?? "x"}-${ex.code}-${ex.exam}`}
+                key={entry.id}
                 type="button"
-                onClick={() => pickExam({ level: levelFilter !== "all" ? levelFilter : ex.level, exam: ex.exam })}
+                onClick={() => pickExam({ categoryId: categoryFilter !== "all" ? categoryFilter : entry.categoryId, exam: entry.exam })}
                 className="glass-card-light p-3 text-left hover:border-white/20 transition-all"
               >
-                <p className="text-sm font-semibold text-white line-clamp-2">{ex.exam}</p>
-                <p className="text-xs text-surface-200/40 mt-1">{ex.code}</p>
+                <p className="text-sm font-semibold text-white line-clamp-2">{entry.exam}</p>
+                <p className="text-xs text-surface-200/40 mt-1">{entry.code}</p>
               </button>
             ))}
           </div>
@@ -527,7 +518,6 @@ export default function PyqPracticeClient({
 
   return (
     <div className="min-h-dvh px-4 pt-6 pb-24 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button
           type="button"
@@ -544,42 +534,39 @@ export default function PyqPracticeClient({
         </div>
       </div>
 
-      {/* Language toggle */}
       <div className="flex gap-2 mb-4">
         {[
           { id: "both", label: "EN+ML" },
           { id: "en", label: "EN" },
           { id: "ml", label: "ML" },
-        ].map((l) => (
+        ].map((entry) => (
           <button
-            key={l.id}
+            key={entry.id}
             type="button"
-            onClick={() => setLang(l.id as "en" | "ml" | "both")}
+            onClick={() => setLang(entry.id as "en" | "ml" | "both")}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              lang === l.id
+              lang === entry.id
                 ? "bg-white/10 text-white border border-white/15"
                 : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
             }`}
           >
-            {l.label}
+            {entry.label}
           </button>
         ))}
       </div>
 
-      {/* Question */}
       <div className="glass-card p-5 mb-4">
         <p className="text-sm text-white whitespace-pre-line leading-relaxed">{questionText}</p>
 
         <div className="mt-4 space-y-2">
-          {current.options.map((opt) => {
-            const key = opt.key;
+          {current.options.map((option) => {
+            const key = option.key;
             const isSelected = selectedOption === key;
             const isCorrect = result && key === result.correctOption;
             const isWrong = result && isSelected && !result.isCorrect;
 
-            const base =
-              "w-full text-left p-4 rounded-xl border transition-all option-btn";
-            const cls = result
+            const base = "w-full text-left p-4 rounded-xl border transition-all option-btn";
+            const className = result
               ? isCorrect
                 ? `${base} bg-success-500/20 border-success-500/50 text-success-200`
                 : isWrong
@@ -590,7 +577,7 @@ export default function PyqPracticeClient({
                 : `${base} bg-white/5 border-white/10 text-surface-200/70 hover:border-white/20`;
 
             const optionText =
-              lang === "en" ? opt.en : lang === "ml" ? opt.ml : `${opt.en}\n${opt.ml || ""}`.trim();
+              lang === "en" ? option.en : lang === "ml" ? option.ml : `${option.en}\n${option.ml || ""}`.trim();
 
             return (
               <button
@@ -598,7 +585,7 @@ export default function PyqPracticeClient({
                 type="button"
                 disabled={!!result}
                 onClick={() => setSelectedOption(key)}
-                className={cls}
+                className={className}
               >
                 <div className="flex items-start gap-3">
                   <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0">
@@ -612,7 +599,6 @@ export default function PyqPracticeClient({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -632,7 +618,6 @@ export default function PyqPracticeClient({
         </button>
       </div>
 
-      {/* Result */}
       {result && (
         <div className="glass-card-light p-4 mt-4">
           <p className={`text-sm font-semibold ${result.isCorrect ? "text-success-400" : "text-error-400"}`}>
@@ -645,7 +630,6 @@ export default function PyqPracticeClient({
         </div>
       )}
 
-      {/* Footer timer */}
       <div className="mt-4 text-xs text-surface-200/40">
         Time: {timer}s
         {year ? ` • Year: ${year}` : ""}

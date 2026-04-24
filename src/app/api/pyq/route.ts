@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import Category from "@/lib/db/models/Category";
 import { LEVEL_NAMES } from "@/lib/db/models/Level";
+import mongoose from "mongoose";
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +17,8 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const level = searchParams.get("level");
+    const categoryIdParam = searchParams.get("categoryId");
+    const legacyLevel = searchParams.get("level");
     const exam = searchParams.get("exam");
     const yearParam = searchParams.get("year");
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
@@ -23,14 +26,20 @@ export async function GET(request: Request) {
 
     await connectDB();
 
+    let resolvedCategoryId: mongoose.Types.ObjectId | null = null;
+    if (categoryIdParam && mongoose.isValidObjectId(categoryIdParam)) {
+      resolvedCategoryId = new mongoose.Types.ObjectId(categoryIdParam);
+    } else if (legacyLevel && (LEVEL_NAMES as readonly string[]).includes(legacyLevel)) {
+      const category = await Category.findOne({ slug: legacyLevel }).select({ _id: 1 }).lean();
+      if (category?._id) resolvedCategoryId = category._id as mongoose.Types.ObjectId;
+    }
+
     const match: Record<string, unknown> = {
       isVerified: true,
       sourceType: { $in: ["pyq", "pyq_variant"] },
     };
 
-    if (level && (LEVEL_NAMES as readonly string[]).includes(level)) {
-      match.level = level;
-    }
+    if (resolvedCategoryId) match.categoryId = resolvedCategoryId;
     if (exam && exam.length <= 128) match.exam = exam;
     if (year) match["pyq.year"] = year;
 
@@ -43,7 +52,12 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: questions,
-      meta: { limit, level: level || undefined, exam: exam || undefined, year: year || undefined },
+      meta: {
+        limit,
+        categoryId: resolvedCategoryId ? String(resolvedCategoryId) : undefined,
+        exam: exam || undefined,
+        year: year || undefined,
+      },
     });
   } catch (error) {
     console.error("PYQ error:", error);

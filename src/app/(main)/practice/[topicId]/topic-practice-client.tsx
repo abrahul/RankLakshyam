@@ -36,22 +36,22 @@ interface AttemptResult {
 export default function TopicPracticeClient({
   topicId,
   subTopic,
-  level,
+  categoryId,
   exam,
 }: {
   topicId: string;
   subTopic?: string;
-  level?: string;
+  categoryId?: string;
   exam?: string;
 }) {
   const router = useRouter();
   const topicLabel = useMemo(() => {
     let label = topicId.replaceAll("_", " ").toUpperCase();
     if (subTopic) label += ` › ${subTopic.replaceAll("_", " ")}`;
-    if (level) label += ` • ${level.replaceAll("_", " ")}`;
+    if (categoryId) label += ` • ${categoryId.replaceAll("_", " ")}`;
     if (exam) label += ` • ${exam}`;
     return label;
-  }, [topicId, subTopic, level, exam]);
+  }, [topicId, subTopic, categoryId, exam]);
 
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -72,20 +72,18 @@ export default function TopicPracticeClient({
     bonusXP: number;
   } | null>(null);
 
-  // Timer
   useEffect(() => {
     if (loading || selectedOption || showResults) return;
     const interval = setInterval(() => setTimer((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [loading, selectedOption, showResults]);
 
-  // Load topic questions + create a session
   useEffect(() => {
     async function loadTopicPractice() {
       try {
         const params = new URLSearchParams({ topic: topicId, limit: "20", page: "1" });
         if (subTopic) params.set("subTopic", subTopic);
-        if (level) params.set("level", level);
+        if (categoryId) params.set("categoryId", categoryId);
         if (exam) params.set("exam", exam);
         const res = await fetch(`/api/questions?${params}`);
         const data = await res.json();
@@ -111,7 +109,7 @@ export default function TopicPracticeClient({
           body: JSON.stringify({
             type: "topic",
             questionIds: q.map((qq) => qq._id),
-            context: { topicId, subTopic, level, exam },
+            context: { topicId, subTopic, categoryId, exam },
           }),
         });
         const sessionData = await sessionRes.json();
@@ -141,8 +139,8 @@ export default function TopicPracticeClient({
     setSessionId(null);
     setQuestions([]);
 
-    loadTopicPractice();
-  }, [topicId, subTopic, level, exam]);
+    void loadTopicPractice();
+  }, [topicId, subTopic, categoryId, exam]);
 
   const submitAnswer = useCallback(async () => {
     if (!selectedOption || !sessionId || submitting) return;
@@ -309,12 +307,8 @@ export default function TopicPracticeClient({
         </div>
 
         <div className="space-y-1.5">
-          {lang !== "ml" ? (
-            <p className="text-white font-semibold leading-relaxed">{current.text.en}</p>
-          ) : null}
-          {lang !== "en" ? (
-            <p className="text-surface-200/80 leading-relaxed">{current.text.ml}</p>
-          ) : null}
+          {lang !== "ml" ? <p className="text-white font-semibold leading-relaxed">{current.text.en}</p> : null}
+          {lang !== "en" ? <p className="text-surface-200/80 leading-relaxed">{current.text.ml}</p> : null}
         </div>
       </div>
 

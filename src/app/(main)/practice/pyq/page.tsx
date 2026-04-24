@@ -12,7 +12,7 @@ export default async function PyqPracticePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const level = getFirst(sp.level);
+  const categoryId = getFirst(sp.categoryId || sp.level);
   const exam = getFirst(sp.exam);
   const year = getFirst(sp.year);
 
@@ -25,7 +25,7 @@ export default async function PyqPracticePage({
         </div>
       }
     >
-      <PyqPracticeClient level={level} exam={exam} year={year} />
+      <PyqPracticeClient categoryId={categoryId} exam={exam} year={year} />
     </Suspense>
   );
 }
