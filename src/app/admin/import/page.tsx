@@ -13,8 +13,8 @@ const SAMPLE_JSON = `[
     ],
     "correctOption": "A",
     "explanation": { "en": "Explanation here", "ml": "വിശദീകരണം" },
-    "topicId": "history",
-    "subTopic": "kerala_history",
+    "topicId": "Kerala History",
+    "subtopicId": "PUT_SUBTOPIC_OBJECT_ID_HERE",
     "difficulty": 2,
     "questionStyle": "direct",
     "level": "10th_level",
@@ -233,7 +233,8 @@ export default function ImportPage() {
           <p><code className="text-primary-300">options</code> — Array of 4 objects with key (A-D), en, ml</p>
           <p><code className="text-primary-300">correctOption</code> — &quot;A&quot;, &quot;B&quot;, &quot;C&quot;, or &quot;D&quot; (required)</p>
           <p><code className="text-primary-300">explanation</code> — {`{ en, ml }`} (optional)</p>
-          <p><code className="text-primary-300">topicId</code> — history, geography, polity, science, current_affairs, language, reasoning, gk</p>
+          <p><code className="text-primary-300">topicId</code> — Existing topic ID from Topics admin (required). Example: <code className="text-primary-300">Kerala History</code></p>
+          <p><code className="text-primary-300">subtopicId</code> — Existing Subtopic Mongo ObjectId (optional). Use the subtopic record ID, not a slug or label.</p>
           <p><code className="text-primary-300">difficulty</code> — 1 to 5 (default: 2)</p>
           <p><code className="text-primary-300">questionStyle</code> — direct, concept, statement, negative, indirect (default: direct)</p>
           <p><code className="text-primary-300">level</code> — 10th_level, plus2_level, degree_level, other_exams</p>
