@@ -13,6 +13,7 @@ interface StatsData {
     hasDailyChallenge: boolean;
   };
   topicBreakdown: Array<{ _id: string; count: number; verified: number }>;
+  topicMeta: Record<string, { name: string; icon: string; color: string }>;
   recentUsers: Array<{
     _id: string;
     name: string;
@@ -23,25 +24,20 @@ interface StatsData {
   }>;
 }
 
-const TOPIC_LABELS: Record<string, string> = {
-  history: "📖 History", geography: "🌍 Geography", polity: "⚖️ Polity",
-  science: "🔬 Science", current_affairs: "📰 Current Affairs",
-  language: "✍️ Language", reasoning: "🧠 Reasoning", gk: "💡 GK",
-};
-
 export default function AdminDashboard() {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const didFetch = useRef(false);
 
   useEffect(() => {
-    // Avoid double-fetch in React Strict Mode (dev).
     if (didFetch.current) return;
     didFetch.current = true;
 
     fetch("/api/admin/stats")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setData(d.data); })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (payload.success) setData(payload.data);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -57,11 +53,10 @@ export default function AdminDashboard() {
     return <p className="text-surface-200/60 text-center py-10">Failed to load stats</p>;
   }
 
-  const { overview, topicBreakdown, recentUsers } = data;
+  const { overview, topicBreakdown, topicMeta, recentUsers } = data;
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon="👥" label="Total Users" value={overview.totalUsers} />
         <KpiCard icon="❓" label="Total Questions" value={overview.totalQuestions} accent />
@@ -80,16 +75,15 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Topic Breakdown + Recent Users */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Topic Breakdown */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-surface-200/60 mb-4">Questions by Topic</h3>
           <div className="space-y-3">
             {topicBreakdown.map((topic) => (
               <div key={topic._id} className="flex items-center gap-3">
                 <span className="text-sm w-40 truncate text-surface-200">
-                  {TOPIC_LABELS[topic._id] || topic._id}
+                  {topicMeta[topic._id]?.icon ? `${topicMeta[topic._id].icon} ` : ""}
+                  {topicMeta[topic._id]?.name || topic._id}
                 </span>
                 <div className="flex-1 h-6 rounded-md overflow-hidden bg-white/5 flex">
                   <div
@@ -121,7 +115,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Recent Users */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-surface-200/60 mb-4">Recent Sign-ups</h3>
           <div className="space-y-3">
@@ -154,9 +147,17 @@ export default function AdminDashboard() {
 }
 
 function KpiCard({
-  icon, label, value, color, accent,
+  icon,
+  label,
+  value,
+  color,
+  accent,
 }: {
-  icon: string; label: string; value: number | string; color?: string; accent?: boolean;
+  icon: string;
+  label: string;
+  value: number | string;
+  color?: string;
+  accent?: boolean;
 }) {
   return (
     <div className={`glass-card p-4 ${accent ? "border-primary-400/30" : ""}`}>

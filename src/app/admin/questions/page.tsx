@@ -18,7 +18,6 @@ interface QuestionRow {
 
 interface Meta { page: number; limit: number; total: number; totalPages: number; }
 interface TopicOption { id: string; label: string; subTopics: Array<{ id: string; name: { en: string } }>; }
-interface LevelOption { _id: string; name: string; displayName: { en: string }; }
 interface ExamOption { _id: string; name: string; code: string | null; }
 
 const LEVELS = [
@@ -167,7 +166,7 @@ function QuestionModal({ editId, topics, onClose, onSaved }: { editId: string | 
     options: [{ key: "A", en: "", ml: "" }, { key: "B", en: "", ml: "" }, { key: "C", en: "", ml: "" }, { key: "D", en: "", ml: "" }],
     correctOption: "A",
     explanation: { en: "", ml: "" },
-    topicId: "history",
+    topicId: topics[0]?.id || "",
     subTopic: "",
     tags: "",
     difficulty: 2,
@@ -203,11 +202,16 @@ function QuestionModal({ editId, topics, onClose, onSaved }: { editId: string | 
     }).catch(() => setLevelExams([]));
   }, [form.level]);
 
-  const currentSubTopics = topics.find((t) => t.id === form.topicId)?.subTopics || [];
+  const currentTopicId = form.topicId || topics[0]?.id || "";
+  const currentSubTopics = topics.find((t) => t.id === currentTopicId)?.subTopics || [];
 
   const handleSave = async () => {
     setSaving(true);
-    const payload = { ...form, tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean) };
+    const payload = {
+      ...form,
+      topicId: currentTopicId,
+      tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+    };
     const url = editId ? `/api/admin/questions/${editId}` : "/api/admin/questions";
     const method = editId ? "PUT" : "POST";
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -289,7 +293,7 @@ function QuestionModal({ editId, topics, onClose, onSaved }: { editId: string | 
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Topic *</label><select value={form.topicId} onChange={(e) => setForm((f) => ({ ...f, topicId: e.target.value, subTopic: "" }))} style={{ colorScheme: "dark" }} className={selCls}>{topics.map((t) => (<option key={t.id} value={t.id}>{t.label}</option>))}</select></div>
+              <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Topic *</label><select value={currentTopicId} onChange={(e) => setForm((f) => ({ ...f, topicId: e.target.value, subTopic: "" }))} style={{ colorScheme: "dark" }} className={selCls}>{topics.map((t) => (<option key={t.id} value={t.id}>{t.label}</option>))}</select></div>
               <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Subtopic</label>{currentSubTopics.length > 0 ? (<select value={form.subTopic} onChange={(e) => setForm((f) => ({ ...f, subTopic: e.target.value }))} style={{ colorScheme: "dark" }} className={selCls}><option value="">— None —</option>{currentSubTopics.map((st) => (<option key={st.id} value={st.id}>{st.name.en}</option>))}</select>) : (<input value={form.subTopic} onChange={(e) => setForm((f) => ({ ...f, subTopic: e.target.value }))} placeholder="e.g. kerala_history" className={inputCls} />)}</div>
               <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Difficulty</label><select value={form.difficulty} onChange={(e) => setForm((f) => ({ ...f, difficulty: parseInt(e.target.value) }))} style={{ colorScheme: "dark" }} className={selCls}>{[1, 2, 3, 4, 5].map((d) => (<option key={d} value={d}>{"⭐".repeat(d)} ({d})</option>))}</select></div>
             </div>

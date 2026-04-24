@@ -22,6 +22,10 @@ import {
   type PscQuestion,
 } from "@/app/api/ai/schema";
 
+function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
+  return topic?.categoryId || topic?.categoryIds?.[0] || null;
+}
+
 const SourceTypeSchema = z.enum(["pyq", "institute", "internet"]);
 
 const DatasetSourceSchema = z.object({
@@ -218,8 +222,8 @@ export async function POST(request: Request) {
 
         if (!payload.store) continue;
 
-        const topic = await Topic.findById(finalQuestion.topicId).select({ categoryId: 1 }).lean();
-        const categoryId = topic?.categoryId;
+        const topic = await Topic.findById(finalQuestion.topicId).select({ categoryId: 1, categoryIds: 1 }).lean();
+        const categoryId = getPrimaryCategoryId(topic);
         if (!categoryId) {
           report.skippedInvalid++;
           continue;

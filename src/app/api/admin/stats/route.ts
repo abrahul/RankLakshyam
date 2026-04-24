@@ -6,6 +6,7 @@ import Question from "@/lib/db/models/Question";
 import Attempt from "@/lib/db/models/Attempt";
 import TestSession from "@/lib/db/models/TestSession";
 import DailyChallenge from "@/lib/db/models/DailyChallenge";
+import Topic from "@/lib/db/models/Topic";
 import { getTodayIST } from "@/lib/utils/scoring";
 
 type StatsResponse = {
@@ -21,6 +22,7 @@ type StatsResponse = {
       hasDailyChallenge: boolean;
     };
     topicBreakdown: Array<{ _id: string; count: number; verified: number }>;
+    topicMeta: Record<string, { name: string; icon: string; color: string }>;
     recentUsers: Array<{
       _id: string;
       name: string;
@@ -72,6 +74,21 @@ export async function GET() {
     DailyChallenge.findOne({ date: today }).lean(),
   ]);
 
+  const topicIds = (topicCounts as Array<{ _id: string }>).map((topic) => topic._id).filter(Boolean);
+  const topicDocs = topicIds.length
+    ? await Topic.find({ _id: { $in: topicIds } }).select("_id name icon color").lean()
+    : [];
+  const topicMeta = Object.fromEntries(
+    topicDocs.map((topic) => [
+      String(topic._id),
+      {
+        name: topic.name?.en || String(topic._id),
+        icon: topic.icon || "",
+        color: topic.color || "#6366f1",
+      },
+    ])
+  );
+
   const recentUsers = (recentUsersRaw as Array<{
     _id: { toString: () => string };
     name: string;
@@ -101,6 +118,7 @@ export async function GET() {
         hasDailyChallenge: !!dailyChallenge,
       },
       topicBreakdown: topicCounts,
+      topicMeta,
       recentUsers,
     },
   };

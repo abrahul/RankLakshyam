@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
@@ -14,16 +14,26 @@ interface DashboardData {
   rankInfo?: { current: Rank; next: Rank | null; progress: number; xpToNext: number };
 }
 
+interface TopicPreview {
+  id: string;
+  name: { en: string; ml: string };
+  icon: string;
+  color: string;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [dashData, setDashData] = useState<DashboardData | null>(null);
+  const [topics, setTopics] = useState<TopicPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchDashboard() {
       try {
-        const res = await fetch("/api/dashboard");
-        const dash = await res.json();
+        const [dashboardRes, topicsRes] = await Promise.all([fetch("/api/dashboard"), fetch("/api/topics")]);
+        const dash = await dashboardRes.json();
+        const topicsPayload = await topicsRes.json();
+
         if (!dash?.success) {
           throw new Error(dash?.error?.message || "Failed to load dashboard");
         }
@@ -36,6 +46,9 @@ export default function DashboardPage() {
           totalAttempted: dash.data?.overall?.totalAttempted || 0,
           rankInfo: dash.data?.rank || undefined,
         });
+        if (topicsPayload?.success) {
+          setTopics(topicsPayload.data || []);
+        }
       } catch {
         setDashData({
           hasCompletedToday: false,
@@ -44,6 +57,7 @@ export default function DashboardPage() {
           accuracy: 0,
           totalAttempted: 0,
         });
+        setTopics([]);
       } finally {
         setLoading(false);
       }
@@ -64,7 +78,6 @@ export default function DashboardPage() {
 
   return (
     <div className="px-4 pt-6 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-surface-200/60 text-sm">{greeting}</p>
@@ -103,7 +116,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Daily Challenge Card */}
       <Link href="/challenge" id="daily-challenge-card">
         <div className="glass-card p-5 mb-4 relative overflow-hidden group cursor-pointer transition-all hover:border-primary-400/30">
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary-500/10 blur-[50px] group-hover:bg-primary-500/20 transition-all" />
@@ -136,7 +148,6 @@ export default function DashboardPage() {
         </div>
       </Link>
 
-      {/* Quick Stats Grid */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <StatCard icon="🎯" label="Accuracy" value={`${dashData?.accuracy || 0}%`} color="text-primary-400" />
         <StatCard icon="📚" label="Attempted" value={`${dashData?.totalAttempted || 0}`} color="text-accent-400" />
@@ -144,7 +155,6 @@ export default function DashboardPage() {
         <StatCard icon="⚡" label="Total XP" value={`${dashData?.xp || 0}`} color="text-yellow-400" />
       </div>
 
-      {/* Quick Actions */}
       <h2 className="text-lg font-bold text-white mb-3">Quick Practice</h2>
       <div className="grid grid-cols-2 gap-3 mb-6">
         <Link href="/practice" id="quick-topic-practice">
@@ -155,10 +165,9 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Topics Overview */}
       <h2 className="text-lg font-bold text-white mb-3">Topics</h2>
       <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide">
-        {TOPICS_PREVIEW.map((topic) => (
+        {topics.slice(0, 8).map((topic) => (
           <Link
             key={topic.id}
             href={`/practice/${topic.id}`}
@@ -169,9 +178,7 @@ export default function DashboardPage() {
               style={{ borderColor: `${topic.color}30` }}
             >
               <span className="text-2xl">{topic.icon}</span>
-              <span className="text-xs text-surface-200 font-medium whitespace-nowrap">
-                {topic.name}
-              </span>
+              <span className="text-xs text-surface-200 font-medium whitespace-nowrap">{topic.name.en}</span>
             </div>
           </Link>
         ))}
@@ -208,14 +215,3 @@ function getGreeting() {
   if (hour < 17) return "Good afternoon 🌤️";
   return "Good evening 🌙";
 }
-
-const TOPICS_PREVIEW = [
-  { id: "history", name: "History", icon: "📖", color: "#E65100" },
-  { id: "geography", name: "Geography", icon: "🌍", color: "#2E7D32" },
-  { id: "polity", name: "Polity", icon: "⚖️", color: "#1565C0" },
-  { id: "science", name: "Science", icon: "🔬", color: "#6A1B9A" },
-  { id: "current_affairs", name: "Current", icon: "📰", color: "#C62828" },
-  { id: "language", name: "Language", icon: "✍️", color: "#00838F" },
-  { id: "reasoning", name: "Reasoning", icon: "🧠", color: "#F57F17" },
-  { id: "gk", name: "GK", icon: "💡", color: "#4527A0" },
-];

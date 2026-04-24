@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type GeneratedQuestion = {
   _id?: string;
@@ -19,22 +19,17 @@ type GeneratedQuestion = {
   tags: string[];
 };
 
+type TopicOption = {
+  id: string;
+  name: { en: string; ml: string };
+  icon: string;
+};
+
 const LEVELS = [
   { id: "10th_level", label: "10th Level" },
   { id: "plus2_level", label: "Plus Two" },
   { id: "degree_level", label: "Degree" },
   { id: "other_exams", label: "Others" },
-];
-
-const TOPICS = [
-  { id: "history", label: "📖 History" },
-  { id: "geography", label: "🌍 Geography" },
-  { id: "polity", label: "⚖️ Polity" },
-  { id: "science", label: "🔬 Science" },
-  { id: "current_affairs", label: "📰 Current Affairs" },
-  { id: "language", label: "✍️ Language" },
-  { id: "reasoning", label: "🧠 Reasoning" },
-  { id: "gk", label: "💡 GK" },
 ];
 
 export default function AdminAiGeneratePage() {
@@ -46,10 +41,22 @@ export default function AdminAiGeneratePage() {
   const [level, setLevel] = useState<string>("10th_level");
   const [exam, setExam] = useState<string>("");
   const [store, setStore] = useState(true);
+  const [topics, setTopics] = useState<TopicOption[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [question, setQuestion] = useState<GeneratedQuestion | null>(null);
+
+  useEffect(() => {
+    fetch("/api/topics")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setTopics(data.data || []);
+        }
+      })
+      .catch(() => setTopics([]));
+  }, []);
 
   const canGenerate = sourceText.trim().length > 20 && !loading;
 
@@ -66,8 +73,6 @@ export default function AdminAiGeneratePage() {
     }),
     [difficultyHint, exam, level, sourceText, sourceType, store, styleHint, topicHint]
   );
-
-
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -87,8 +92,7 @@ export default function AdminAiGeneratePage() {
         return;
       }
 
-      const q = data.data?.question;
-      setQuestion(q);
+      setQuestion(data.data?.question);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -127,7 +131,7 @@ export default function AdminAiGeneratePage() {
             <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Source Type</label>
             <select
               value={sourceType}
-              onChange={(e) => setSourceType(e.target.value)}
+              onChange={(event) => setSourceType(event.target.value)}
               style={{ colorScheme: "dark" }}
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
@@ -143,14 +147,15 @@ export default function AdminAiGeneratePage() {
             <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Preferred Topic</label>
             <select
               value={topicHint}
-              onChange={(e) => setTopicHint(e.target.value)}
+              onChange={(event) => setTopicHint(event.target.value)}
               style={{ colorScheme: "dark" }}
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
               <option value="auto">Auto</option>
-              {TOPICS.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.icon ? `${topic.icon} ` : ""}
+                  {topic.name.en}
                 </option>
               ))}
             </select>
@@ -160,14 +165,14 @@ export default function AdminAiGeneratePage() {
             <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Preferred Difficulty</label>
             <select
               value={difficultyHint}
-              onChange={(e) => setDifficultyHint(e.target.value)}
+              onChange={(event) => setDifficultyHint(event.target.value)}
               style={{ colorScheme: "dark" }}
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
               <option value="auto">Auto</option>
-              {[1, 2, 3, 4, 5].map((d) => (
-                <option key={d} value={String(d)}>
-                  {"⭐".repeat(d)} ({d})
+              {[1, 2, 3, 4, 5].map((difficulty) => (
+                <option key={difficulty} value={String(difficulty)}>
+                  {"⭐".repeat(difficulty)} ({difficulty})
                 </option>
               ))}
             </select>
@@ -177,7 +182,7 @@ export default function AdminAiGeneratePage() {
             <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Preferred Style</label>
             <select
               value={styleHint}
-              onChange={(e) => setStyleHint(e.target.value)}
+              onChange={(event) => setStyleHint(event.target.value)}
               style={{ colorScheme: "dark" }}
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
@@ -194,13 +199,27 @@ export default function AdminAiGeneratePage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Level</label>
-            <select value={level} onChange={(e) => setLevel(e.target.value)} style={{ colorScheme: "dark" }} className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white">
-              {LEVELS.map((l) => (<option key={l.id} value={l.id}>{l.label}</option>))}
+            <select
+              value={level}
+              onChange={(event) => setLevel(event.target.value)}
+              style={{ colorScheme: "dark" }}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
+            >
+              {LEVELS.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>
             <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Exam (optional)</label>
-            <input value={exam} onChange={(e) => setExam(e.target.value)} placeholder="e.g. LDC VARIOUS" className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none" />
+            <input
+              value={exam}
+              onChange={(event) => setExam(event.target.value)}
+              placeholder="e.g. LDC VARIOUS"
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
+            />
           </div>
         </div>
 
@@ -209,7 +228,7 @@ export default function AdminAiGeneratePage() {
             <input
               type="checkbox"
               checked={store}
-              onChange={(e) => setStore(e.target.checked)}
+              onChange={(event) => setStore(event.target.checked)}
               className="accent-primary-500"
             />
             Auto-save to MongoDB
@@ -227,7 +246,7 @@ export default function AdminAiGeneratePage() {
           <label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Source Text *</label>
           <textarea
             value={sourceText}
-            onChange={(e) => setSourceText(e.target.value)}
+            onChange={(event) => setSourceText(event.target.value)}
             rows={10}
             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-mono resize-none focus:border-primary-400/50 focus:outline-none"
             placeholder="Paste textbook/notes/news content here (min ~20 chars)..."
@@ -262,26 +281,24 @@ export default function AdminAiGeneratePage() {
 
           <div className="space-y-1">
             <p className="text-white text-sm font-semibold">{question.text.en}</p>
-            {question.text.ml ? (
-              <p className="text-surface-200/70 text-sm">{question.text.ml}</p>
-            ) : null}
+            {question.text.ml ? <p className="text-surface-200/70 text-sm">{question.text.ml}</p> : null}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {question.options.map((o) => (
+            {question.options.map((option) => (
               <div
-                key={o.key}
+                key={option.key}
                 className={`p-3 rounded-xl border text-sm ${
-                  o.key === question.correctOption
+                  option.key === question.correctOption
                     ? "bg-success-500/10 border-success-500/30 text-success-200"
                     : "bg-white/5 border-white/10 text-surface-200/80"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs opacity-70">{o.key}.</span>
-                  <span className="font-medium">{o.en}</span>
+                  <span className="text-xs opacity-70">{option.key}.</span>
+                  <span className="font-medium">{option.en}</span>
                 </div>
-                {o.ml ? <div className="text-xs opacity-70 mt-1">{o.ml}</div> : null}
+                {option.ml ? <div className="text-xs opacity-70 mt-1">{option.ml}</div> : null}
               </div>
             ))}
           </div>

@@ -7,6 +7,16 @@ import SubTopic from "@/lib/db/models/SubTopic";
 import Question from "@/lib/db/models/Question";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 
+function buildTopicCategoryFilter(categoryId?: string | null) {
+  if (!categoryId) return {};
+  return {
+    $or: [
+      { categoryId },
+      { categoryIds: categoryId },
+    ],
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -19,16 +29,11 @@ export async function GET(request: Request) {
 
     await connectDB();
 
-    const topicFilter: Record<string, unknown> = {};
-    if (categoryId) topicFilter.categoryId = categoryId;
+    const topics = await Topic.find(buildTopicCategoryFilter(categoryId)).sort({ sortOrder: 1 });
 
-    const topics = await Topic.find(topicFilter).sort({ sortOrder: 1 });
-
-    // Fetch all subtopics for the topics
-    const topicIds = topics.map((t) => t._id);
+    const topicIds = topics.map((topic) => topic._id);
     const subtopics = await SubTopic.find({ topicId: { $in: topicIds } }).sort({ sortOrder: 1 });
 
-    // Per-topic and per-subtopic counts in one aggregate
     const match: Record<string, unknown> = { isVerified: true };
     if (categoryId && mongoose.isValidObjectId(categoryId)) {
       match.categoryId = new mongoose.Types.ObjectId(categoryId);
@@ -39,40 +44,49 @@ export async function GET(request: Request) {
       { $group: { _id: { topic: "$topicId", subtopic: "$subtopicId" }, count: { $sum: 1 } } },
     ]);
 
-    // Build maps
     const topicTotal: Record<string, number> = {};
     const subTopicCount: Record<string, Record<string, number>> = {};
-    for (const c of counts as Array<{ _id: { topic: string; subtopic: unknown }; count: number }>) {
-      const { topic, subtopic } = c._id;
-      topicTotal[topic] = (topicTotal[topic] || 0) + c.count;
+    for (const entry of counts as Array<{ _id: { topic: string; subtopic: unknown }; count: number }>) {
+      const { topic, subtopic } = entry._id;
+      topicTotal[topic] = (topicTotal[topic] || 0) + entry.count;
       if (subtopic) {
         const sid = String(subtopic);
         subTopicCount[topic] = subTopicCount[topic] || {};
-        subTopicCount[topic][sid] = c.count;
+        subTopicCount[topic][sid] = entry.count;
       }
     }
 
-    // Group subtopics by topicId
     const subtopicsByTopic: Record<string, typeof subtopics> = {};
-    for (const st of subtopics) {
-      const tid = st.topicId;
-      if (!subtopicsByTopic[tid]) subtopicsByTopic[tid] = [];
-      subtopicsByTopic[tid].push(st);
+    for (const subtopic of subtopics) {
+      const topicId = subtopic.topicId;
+      if (!subtopicsByTopic[topicId]) subtopicsByTopic[topicId] = [];
+      subtopicsByTopic[topicId].push(subtopic);
     }
 
-    const topicsWithCounts = topics.map((t) => ({
-      id: t._id,
-      name: t.name,
-      icon: t.icon,
-      color: t.color,
-      categoryId: t.categoryId || null,
-      subTopics: (subtopicsByTopic[t._id] || []).map((st) => ({
-        id: String(st._id),
-        name: st.name,
-        questionCount: subTopicCount[t._id]?.[String(st._id)] || 0,
-      })),
-      questionCount: topicTotal[t._id] || 0,
-    }));
+    const topicsWithCounts = topics.map((topic) => {
+      const categoryIds = [
+        ...new Set(
+          [topic.categoryId, ...(topic.categoryIds || [])]
+            .filter(Boolean)
+            .map((value) => String(value))
+        ),
+      ];
+
+      return {
+        id: topic._id,
+        name: topic.name,
+        icon: topic.icon,
+        color: topic.color,
+        categoryId: categoryIds[0] || null,
+        categoryIds,
+        subTopics: (subtopicsByTopic[topic._id] || []).map((subtopic) => ({
+          id: String(subtopic._id),
+          name: subtopic.name,
+          questionCount: subTopicCount[topic._id]?.[String(subtopic._id)] || 0,
+        })),
+        questionCount: topicTotal[topic._id] || 0,
+      };
+    });
 
     return NextResponse.json({ success: true, data: topicsWithCounts });
   } catch (error) {
@@ -84,18 +98,23 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/topics — admin: create topic
 export async function POST(request: Request) {
   const guard = await requireAdmin();
   if (!guard.authorized) return guard.response;
 
   try {
     const body = await request.json();
-    const { id, name, icon, color, categoryId, dailyWeight, sortOrder } = body;
+    const { id, name, icon, color, categoryId, categoryIds, dailyWeight, sortOrder } = body;
 
-    if (!id || !name?.en || !categoryId) {
+    const normalizedCategoryIds = Array.isArray(categoryIds)
+      ? categoryIds.filter((value): value is string => typeof value === "string" && mongoose.isValidObjectId(value))
+      : categoryId && mongoose.isValidObjectId(categoryId)
+        ? [categoryId]
+        : [];
+
+    if (!id || !name?.en || normalizedCategoryIds.length === 0) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "id, name.en and categoryId are required", statusCode: 400 } },
+        { success: false, error: { code: "INVALID_INPUT", message: "id, name.en and at least one category are required", statusCode: 400 } },
         { status: 400 }
       );
     }
@@ -106,7 +125,8 @@ export async function POST(request: Request) {
       name: { en: String(name.en).trim(), ml: String(name.ml || "").trim() },
       icon: String(icon || "📚"),
       color: String(color || "#6366f1"),
-      categoryId,
+      categoryId: normalizedCategoryIds[0],
+      categoryIds: normalizedCategoryIds,
       dailyWeight: dailyWeight ?? 2,
       sortOrder: sortOrder ?? 0,
       questionCount: 0,

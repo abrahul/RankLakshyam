@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Topic from "@/lib/db/models/Topic";
+import mongoose from "mongoose";
 
 // PUT /api/admin/topics/[id] — update topic fields (levelId, name, icon, etc.)
 export async function PUT(
@@ -14,12 +15,27 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+    const normalizedCategoryIds = Array.isArray(body.categoryIds)
+      ? body.categoryIds.filter((value: unknown) => typeof value === "string" && mongoose.isValidObjectId(value))
+      : typeof body.categoryId === "string" && mongoose.isValidObjectId(body.categoryId)
+        ? [body.categoryId]
+        : undefined;
 
     await connectDB();
 
     const topic = await Topic.findByIdAndUpdate(
       id,
-      { $set: body },
+      {
+        $set: {
+          ...body,
+          ...(normalizedCategoryIds
+            ? {
+                categoryIds: normalizedCategoryIds,
+                categoryId: normalizedCategoryIds[0] || undefined,
+              }
+            : {}),
+        },
+      },
       { new: true, runValidators: true }
     );
 

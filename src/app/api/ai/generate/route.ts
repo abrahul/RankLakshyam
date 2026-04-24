@@ -13,6 +13,10 @@ import {
 import { createOpenAIJsonResponse } from "@/app/api/ai/openai";
 import { PscQuestionJsonSchema, PscQuestionSchema } from "@/app/api/ai/schema";
 
+function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
+  return topic?.categoryId || topic?.categoryIds?.[0] || null;
+}
+
 export async function POST(request: Request) {
   const guard = await requireAdmin();
   if (!guard.authorized) return guard.response;
@@ -90,8 +94,9 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    const topic = await Topic.findById(parsed.topicId).select({ categoryId: 1 }).lean();
-    if (!topic?.categoryId) {
+    const topic = await Topic.findById(parsed.topicId).select({ categoryId: 1, categoryIds: 1 }).lean();
+    const primaryCategoryId = getPrimaryCategoryId(topic);
+    if (!primaryCategoryId) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_INPUT", message: "Invalid topicId (no category linked)", statusCode: 400 } },
         { status: 400 }
@@ -103,7 +108,7 @@ export async function POST(request: Request) {
     const examName = String(parsed.exam || "").trim();
     if (examCode || examName) {
       const examDoc = await Exam.findOne({
-        categoryId: topic.categoryId,
+        categoryId: primaryCategoryId,
         ...(examCode ? { code: examCode } : { name: examName }),
       }).select({ _id: 1 }).lean();
       if (examDoc?._id) examTags = [examDoc._id as unknown as mongoose.Types.ObjectId];
@@ -118,7 +123,7 @@ export async function POST(request: Request) {
       })),
       answer: parsed.correctOption,
       explanation: { en: parsed.explanation.en, ml: parsed.explanation.ml },
-      categoryId: topic.categoryId,
+      categoryId: primaryCategoryId,
       topicId: parsed.topicId,
       subtopicId:
         parsed.subTopic && mongoose.isValidObjectId(parsed.subTopic)

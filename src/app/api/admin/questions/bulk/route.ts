@@ -5,6 +5,11 @@ import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
 import Topic from "@/lib/db/models/Topic";
 
+function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
+  const first = topic?.categoryId || topic?.categoryIds?.[0];
+  return first ? new mongoose.Types.ObjectId(String(first)) : null;
+}
+
 // POST bulk import questions
 export async function POST(request: Request) {
   const guard = await requireAdmin();
@@ -49,8 +54,9 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const topic = await Topic.findById(String(q.topicId)).select({ categoryId: 1 }).lean();
-        if (!topic?.categoryId) {
+        const topic = await Topic.findById(String(q.topicId)).select({ categoryId: 1, categoryIds: 1 }).lean();
+        const primaryCategoryId = getPrimaryCategoryId(topic);
+        if (!primaryCategoryId) {
           results.errors.push(`Q${i + 1}: Invalid topicId (no category linked)`);
           results.skipped++;
           continue;
@@ -72,7 +78,7 @@ export async function POST(request: Request) {
           })),
           answer: resolvedAnswer,
           explanation: { en: q.explanation?.en || "", ml: q.explanation?.ml || "" },
-          categoryId: topic.categoryId,
+          categoryId: primaryCategoryId,
           topicId: q.topicId,
           subtopicId: resolvedSubtopicId,
           examTags: resolvedExamTags,

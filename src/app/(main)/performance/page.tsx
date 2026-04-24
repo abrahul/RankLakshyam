@@ -23,30 +23,42 @@ interface PerformanceData {
   strongAreas: Array<{ topic: string; attempted: number; correct: number; accuracy: number }>;
 }
 
-const TOPIC_LABELS: Record<string, string> = {
-  history: "📖 History",
-  geography: "🌍 Geography",
-  polity: "⚖️ Polity",
-  science: "🔬 Science",
-  current_affairs: "📰 Current Affairs",
-  language: "✍️ Language",
-  reasoning: "🧠 Reasoning",
-  gk: "💡 GK",
+type TopicRow = {
+  id: string;
+  name: { en: string; ml: string };
+  icon: string;
 };
 
 export default function PerformancePage() {
   const [data, setData] = useState<PerformanceData | null>(null);
+  const [topicLabels, setTopicLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchPerformance() {
       try {
-        const res = await fetch("/api/performance");
-        const json = await res.json();
-        if (json.success) setData(json.data);
-      } catch { /* silent */ }
-      finally { setLoading(false); }
+        const [performanceRes, topicsRes] = await Promise.all([fetch("/api/performance"), fetch("/api/topics")]);
+        const performancePayload = await performanceRes.json();
+        const topicsPayload = await topicsRes.json();
+
+        if (performancePayload.success) setData(performancePayload.data);
+        if (topicsPayload.success) {
+          setTopicLabels(
+            Object.fromEntries(
+              (topicsPayload.data as TopicRow[]).map((topic) => [
+                topic.id,
+                `${topic.icon ? `${topic.icon} ` : ""}${topic.name.en}`,
+              ])
+            )
+          );
+        }
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
     }
+
     fetchPerformance();
   }, []);
 
@@ -72,11 +84,8 @@ export default function PerformancePage() {
 
   return (
     <div className="px-4 pt-6 pb-24 animate-fade-in">
-      <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-display)] mb-6">
-        Performance
-      </h1>
+      <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-display)] mb-6">Performance</h1>
 
-      {/* History / Review shortcuts */}
       <div className="grid grid-cols-3 gap-2 mb-6">
         <Link href="/history" className="glass-card-light p-3 text-center topic-card">
           <span className="text-lg block mb-1">🕘</span>
@@ -92,7 +101,6 @@ export default function PerformancePage() {
         </Link>
       </div>
 
-      {/* Overall Stats */}
       <div className="grid grid-cols-3 gap-2 mb-6">
         <StatBox label="Accuracy" value={`${overall.accuracy}%`} icon="🎯" />
         <StatBox label="Speed" value={`${overall.avgTimePerQuestion}s`} icon="⚡" />
@@ -112,7 +120,6 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* 7-Day Trend */}
       {weeklyTrend.length > 0 && (
         <div className="glass-card p-4 mb-6">
           <h3 className="text-sm font-semibold text-surface-200/60 mb-4">7-Day Accuracy Trend</h3>
@@ -133,7 +140,6 @@ export default function PerformancePage() {
         </div>
       )}
 
-      {/* Weak Areas */}
       {weakAreas.length > 0 && (
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-surface-200/60 mb-3">⚠️ Needs Improvement</h3>
@@ -141,7 +147,7 @@ export default function PerformancePage() {
             {weakAreas.map((area) => (
               <TopicBar
                 key={area.topic}
-                topic={area.topic}
+                label={topicLabels[area.topic] || area.topic}
                 accuracy={area.accuracy}
                 attempted={area.attempted}
                 color="#ef4444"
@@ -151,7 +157,6 @@ export default function PerformancePage() {
         </div>
       )}
 
-      {/* Strong Areas */}
       {strongAreas.length > 0 && (
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-surface-200/60 mb-3">💪 Strong Areas</h3>
@@ -159,7 +164,7 @@ export default function PerformancePage() {
             {strongAreas.map((area) => (
               <TopicBar
                 key={area.topic}
-                topic={area.topic}
+                label={topicLabels[area.topic] || area.topic}
                 accuracy={area.accuracy}
                 attempted={area.attempted}
                 color="#22c55e"
@@ -182,12 +187,24 @@ function StatBox({ label, value, icon }: { label: string; value: string; icon: s
   );
 }
 
-function TopicBar({ topic, accuracy, attempted, color }: { topic: string; accuracy: number; attempted: number; color: string }) {
+function TopicBar({
+  label,
+  accuracy,
+  attempted,
+  color,
+}: {
+  label: string;
+  accuracy: number;
+  attempted: number;
+  color: string;
+}) {
   return (
     <div className="glass-card-light p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-surface-200">{TOPIC_LABELS[topic] || topic}</span>
-        <span className="text-xs font-bold" style={{ color }}>{accuracy}%</span>
+        <span className="text-xs font-medium text-surface-200">{label}</span>
+        <span className="text-xs font-bold" style={{ color }}>
+          {accuracy}%
+        </span>
       </div>
       <div className="progress-track">
         <div className="h-full rounded-full" style={{ width: `${accuracy}%`, background: color }} />

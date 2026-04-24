@@ -29,17 +29,23 @@ export async function GET(
       );
     }
 
-    // Fetch subtopics from SubTopic collection
     const subtopics = await SubTopic.find({ topicId: id }).sort({ sortOrder: 1 }).lean();
 
-    // Get per-subtopic question counts
     const subTopicCounts = await Question.aggregate([
       { $match: { topicId: id, isVerified: true } },
       { $group: { _id: "$subtopicId", count: { $sum: 1 } } },
     ]);
     const countMap = Object.fromEntries(
-      subTopicCounts.map((s: { _id: unknown; count: number }) => [String(s._id), s.count])
+      subTopicCounts.map((entry: { _id: unknown; count: number }) => [String(entry._id), entry.count])
     );
+
+    const categoryIds = [
+      ...new Set(
+        [topic.categoryId, ...(topic.categoryIds || [])]
+          .filter(Boolean)
+          .map((value) => String(value))
+      ),
+    ];
 
     return NextResponse.json({
       success: true,
@@ -48,13 +54,14 @@ export async function GET(
         name: topic.name,
         icon: topic.icon,
         color: topic.color,
-        categoryId: topic.categoryId || null,
-        subTopics: subtopics.map((st) => ({
-          id: String(st._id),
-          name: st.name,
-          questionCount: countMap[String(st._id)] || 0,
+        categoryId: categoryIds[0] || null,
+        categoryIds,
+        subTopics: subtopics.map((subtopic) => ({
+          id: String(subtopic._id),
+          name: subtopic.name,
+          questionCount: countMap[String(subtopic._id)] || 0,
         })),
-        totalQuestions: Object.values(countMap).reduce((a: number, b: number) => a + b, 0),
+        totalQuestions: Object.values(countMap).reduce((sum: number, count: number) => sum + count, 0),
       },
     });
   } catch (error) {

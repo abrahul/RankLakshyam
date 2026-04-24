@@ -15,6 +15,7 @@ type TopicRow = {
   icon: string;
   color: string;
   categoryId?: string | null;
+  categoryIds?: string[];
   dailyWeight?: number;
   sortOrder?: number;
   questionCount?: number;
@@ -28,6 +29,10 @@ function idFromName(input: string) {
     .replace(/[^a-z0-9_]/g, "");
 }
 
+function toggleSelection(list: string[], value: string) {
+  return list.includes(value) ? list.filter((entry) => entry !== value) : [...list, value];
+}
+
 export default function TopicsAdminPage() {
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -37,8 +42,13 @@ export default function TopicsAdminPage() {
   const [error, setError] = useState("");
 
   const selectedCategory = useMemo(
-    () => categories.find((c) => c._id === selectedCategoryId) || null,
+    () => categories.find((category) => category._id === selectedCategoryId) || null,
     [categories, selectedCategoryId]
+  );
+
+  const sortedCategories = useMemo(
+    () => categories.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [categories]
   );
 
   const loadCategories = useCallback(async () => {
@@ -86,11 +96,16 @@ export default function TopicsAdminPage() {
   const [newColor, setNewColor] = useState("#6366f1");
   const [newDailyWeight, setNewDailyWeight] = useState<number>(2);
   const [newSortOrder, setNewSortOrder] = useState<number>(0);
+  const [newCategoryIds, setNewCategoryIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!selectedCategoryId) return;
+    setNewCategoryIds((current) => (current.length === 0 ? [selectedCategoryId] : current));
+  }, [selectedCategoryId]);
 
   const addTopic = async () => {
-    if (!selectedCategoryId || !newNameEn.trim()) return;
     const id = (newId.trim() || idFromName(newNameEn)).trim();
-    if (!id) return;
+    if (!id || !newNameEn.trim() || newCategoryIds.length === 0) return;
 
     setSaving(true);
     setError("");
@@ -103,14 +118,15 @@ export default function TopicsAdminPage() {
           name: { en: newNameEn.trim(), ml: newNameMl.trim() },
           icon: newIcon,
           color: newColor,
-          categoryId: selectedCategoryId,
+          categoryIds: newCategoryIds,
           dailyWeight: newDailyWeight,
           sortOrder: newSortOrder,
         }),
       });
       const data = await res.json();
-      if (!data.success) setError(data.error?.message || "Failed to create topic");
-      else {
+      if (!data.success) {
+        setError(data.error?.message || "Failed to create topic");
+      } else {
         setNewNameEn("");
         setNewNameMl("");
         setNewId("");
@@ -118,6 +134,7 @@ export default function TopicsAdminPage() {
         setNewColor("#6366f1");
         setNewDailyWeight(2);
         setNewSortOrder(0);
+        setNewCategoryIds(selectedCategoryId ? [selectedCategoryId] : []);
         await loadTopics(selectedCategoryId);
       }
     } catch {
@@ -134,19 +151,27 @@ export default function TopicsAdminPage() {
   const [editColor, setEditColor] = useState("");
   const [editDailyWeight, setEditDailyWeight] = useState<number>(2);
   const [editSortOrder, setEditSortOrder] = useState<number>(0);
+  const [editCategoryIds, setEditCategoryIds] = useState<string[]>([]);
 
-  const startEdit = (t: TopicRow) => {
-    setEditingId(t.id);
-    setEditNameEn(t.name?.en || "");
-    setEditNameMl(t.name?.ml || "");
-    setEditIcon(t.icon || "📚");
-    setEditColor(t.color || "#6366f1");
-    setEditDailyWeight(typeof t.dailyWeight === "number" ? t.dailyWeight : 2);
-    setEditSortOrder(typeof t.sortOrder === "number" ? t.sortOrder : 0);
+  const startEdit = (topic: TopicRow) => {
+    setEditingId(topic.id);
+    setEditNameEn(topic.name?.en || "");
+    setEditNameMl(topic.name?.ml || "");
+    setEditIcon(topic.icon || "📚");
+    setEditColor(topic.color || "#6366f1");
+    setEditDailyWeight(typeof topic.dailyWeight === "number" ? topic.dailyWeight : 2);
+    setEditSortOrder(typeof topic.sortOrder === "number" ? topic.sortOrder : 0);
+    setEditCategoryIds(
+      topic.categoryIds?.length
+        ? topic.categoryIds
+        : topic.categoryId
+          ? [topic.categoryId]
+          : []
+    );
   };
 
   const saveEdit = async () => {
-    if (!editingId) return;
+    if (!editingId || !editNameEn.trim() || editCategoryIds.length === 0) return;
     setSaving(true);
     setError("");
     try {
@@ -157,7 +182,7 @@ export default function TopicsAdminPage() {
           name: { en: editNameEn.trim(), ml: editNameMl.trim() },
           icon: editIcon,
           color: editColor,
-          categoryId: selectedCategoryId,
+          categoryIds: editCategoryIds,
           dailyWeight: editDailyWeight,
           sortOrder: editSortOrder,
         }),
@@ -201,34 +226,31 @@ export default function TopicsAdminPage() {
     <div className="animate-fade-in">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white mb-1">Topics</h2>
-        <p className="text-sm text-surface-200/50">Create/edit/delete topics under each category.</p>
+        <p className="text-sm text-surface-200/50">Create/edit/delete topics and assign each one to multiple categories.</p>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {categories
-          .slice()
-          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-          .map((c) => (
-            <button
-              key={c._id}
-              type="button"
-              onClick={() => setSelectedCategoryId(c._id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                selectedCategoryId === c._id
-                  ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
-                  : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
-              }`}
-            >
-              {c.name?.en || c.slug}
-            </button>
-          ))}
+        {sortedCategories.map((category) => (
+          <button
+            key={category._id}
+            type="button"
+            onClick={() => setSelectedCategoryId(category._id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              selectedCategoryId === category._id
+                ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
+                : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
+            }`}
+          >
+            {category.name?.en || category.slug}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="glass-card p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs text-surface-200/40 font-semibold uppercase tracking-wider">
-              {selectedCategory ? `Topics — ${selectedCategory.name.en}` : "Topics"}
+              {selectedCategory ? `Topics in ${selectedCategory.name.en}` : "Topics"}
             </p>
             <button
               type="button"
@@ -245,51 +267,70 @@ export default function TopicsAdminPage() {
             <p className="text-sm text-surface-200/40 text-center py-6">No topics yet</p>
           ) : (
             <div className="space-y-2">
-              {topics.map((t) => (
-                <div key={t.id} className="glass-card-light p-3">
-                  {editingId === t.id ? (
-                    <div className="space-y-2">
+              {topics.map((topic) => (
+                <div key={topic.id} className="glass-card-light p-3">
+                  {editingId === topic.id ? (
+                    <div className="space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <input
                           value={editNameEn}
-                          onChange={(e) => setEditNameEn(e.target.value)}
+                          onChange={(event) => setEditNameEn(event.target.value)}
                           className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
                         />
                         <input
                           value={editNameMl}
-                          onChange={(e) => setEditNameMl(e.target.value)}
+                          onChange={(event) => setEditNameMl(event.target.value)}
                           className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                         <input
                           value={editIcon}
-                          onChange={(e) => setEditIcon(e.target.value)}
+                          onChange={(event) => setEditIcon(event.target.value)}
                           className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
                         />
                         <input
                           value={editColor}
-                          onChange={(e) => setEditColor(e.target.value)}
+                          onChange={(event) => setEditColor(event.target.value)}
                           className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
                         />
                         <input
                           type="number"
                           value={editDailyWeight}
-                          onChange={(e) => setEditDailyWeight(parseInt(e.target.value || "2", 10))}
+                          onChange={(event) => setEditDailyWeight(parseInt(event.target.value || "2", 10))}
                           className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
                         />
                         <input
                           type="number"
                           value={editSortOrder}
-                          onChange={(e) => setEditSortOrder(parseInt(e.target.value || "0", 10))}
+                          onChange={(event) => setEditSortOrder(parseInt(event.target.value || "0", 10))}
                           className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
                         />
+                      </div>
+                      <div>
+                        <p className="text-xs text-surface-200/60 font-semibold mb-2">Categories</p>
+                        <div className="flex flex-wrap gap-2">
+                          {sortedCategories.map((category) => (
+                            <button
+                              key={category._id}
+                              type="button"
+                              onClick={() => setEditCategoryIds((current) => toggleSelection(current, category._id))}
+                              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                                editCategoryIds.includes(category._id)
+                                  ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
+                                  : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
+                              }`}
+                            >
+                              {category.name.en}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => void saveEdit()}
-                          disabled={saving || !editNameEn.trim()}
+                          disabled={saving || !editNameEn.trim() || editCategoryIds.length === 0}
                           className="px-3 py-2 rounded-xl gradient-primary text-white text-xs font-semibold disabled:opacity-40"
                         >
                           Save
@@ -308,21 +349,26 @@ export default function TopicsAdminPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-white truncate">
-                          {t.icon} {t.name.en}
+                          {topic.icon} {topic.name.en}
                         </p>
-                        <p className="text-xs text-surface-200/40 truncate">ID: {t.id}</p>
+                        <p className="text-xs text-surface-200/40 truncate">ID: {topic.id}</p>
+                        <p className="text-xs text-surface-200/40 truncate">
+                          Categories: {(topic.categoryIds || (topic.categoryId ? [topic.categoryId] : []))
+                            .map((categoryId) => sortedCategories.find((category) => category._id === categoryId)?.name.en || categoryId)
+                            .join(", ")}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                           type="button"
-                          onClick={() => startEdit(t)}
+                          onClick={() => startEdit(topic)}
                           className="text-xs text-surface-200/60 hover:text-white transition-colors"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          onClick={() => void deleteTopic(t.id)}
+                          onClick={() => void deleteTopic(topic.id)}
                           className="text-xs text-error-400/70 hover:text-error-400 transition-colors"
                         >
                           Delete
@@ -337,41 +383,39 @@ export default function TopicsAdminPage() {
         </div>
 
         <div className="glass-card p-4">
-          <p className="text-xs text-surface-200/40 font-semibold uppercase tracking-wider mb-3">
-            Add Topic
-          </p>
+          <p className="text-xs text-surface-200/40 font-semibold uppercase tracking-wider mb-3">Add Topic</p>
           <div className="space-y-2">
             <input
               value={newNameEn}
-              onChange={(e) => {
-                setNewNameEn(e.target.value);
-                if (!newId.trim()) setNewId(idFromName(e.target.value));
+              onChange={(event) => {
+                setNewNameEn(event.target.value);
+                if (!newId.trim()) setNewId(idFromName(event.target.value));
               }}
               placeholder="Name (EN) *"
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
             />
             <input
               value={newId}
-              onChange={(e) => setNewId(e.target.value)}
+              onChange={(event) => setNewId(event.target.value)}
               placeholder="ID (e.g. kerala_history) *"
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
             />
             <input
               value={newNameMl}
-              onChange={(e) => setNewNameMl(e.target.value)}
+              onChange={(event) => setNewNameMl(event.target.value)}
               placeholder="Name (ML)"
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
             />
             <div className="grid grid-cols-2 gap-2">
               <input
                 value={newIcon}
-                onChange={(e) => setNewIcon(e.target.value)}
+                onChange={(event) => setNewIcon(event.target.value)}
                 placeholder="Icon"
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
               />
               <input
                 value={newColor}
-                onChange={(e) => setNewColor(e.target.value)}
+                onChange={(event) => setNewColor(event.target.value)}
                 placeholder="Color"
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
               />
@@ -380,20 +424,39 @@ export default function TopicsAdminPage() {
               <input
                 type="number"
                 value={newDailyWeight}
-                onChange={(e) => setNewDailyWeight(parseInt(e.target.value || "2", 10))}
+                onChange={(event) => setNewDailyWeight(parseInt(event.target.value || "2", 10))}
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
               />
               <input
                 type="number"
                 value={newSortOrder}
-                onChange={(e) => setNewSortOrder(parseInt(e.target.value || "0", 10))}
+                onChange={(event) => setNewSortOrder(parseInt(event.target.value || "0", 10))}
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none"
               />
+            </div>
+            <div>
+              <p className="text-xs text-surface-200/60 font-semibold mb-2">Categories *</p>
+              <div className="flex flex-wrap gap-2">
+                {sortedCategories.map((category) => (
+                  <button
+                    key={category._id}
+                    type="button"
+                    onClick={() => setNewCategoryIds((current) => toggleSelection(current, category._id))}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      newCategoryIds.includes(category._id)
+                        ? "bg-primary-500/30 text-primary-300 border border-primary-400/50"
+                        : "bg-white/5 text-surface-200/50 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    {category.name.en}
+                  </button>
+                ))}
+              </div>
             </div>
             <button
               type="button"
               onClick={() => void addTopic()}
-              disabled={saving || !selectedCategoryId || !newNameEn.trim() || !newId.trim()}
+              disabled={saving || !newNameEn.trim() || !newId.trim() || newCategoryIds.length === 0}
               className="w-full py-2.5 rounded-xl gradient-primary text-white text-sm font-semibold disabled:opacity-40 transition-all"
             >
               + Add Topic
@@ -404,4 +467,3 @@ export default function TopicsAdminPage() {
     </div>
   );
 }
-

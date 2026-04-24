@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
-import { SessionProvider } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { signOut, useSession, SessionProvider } from "next-auth/react";
 import { useEffect } from "react";
 
 const navItems = [
   { href: "/admin", icon: "📊", label: "Dashboard" },
   { href: "/admin/questions", icon: "❓", label: "Questions" },
+  { href: "/admin/topics", icon: "📚", label: "Topics" },
   { href: "/admin/subtopics", icon: "🗂️", label: "Subtopics" },
   { href: "/admin/import", icon: "📥", label: "Import" },
   { href: "/admin/ai", icon: "🤖", label: "AI Generate" },
@@ -32,7 +31,6 @@ function AdminContent({ children }: { children: React.ReactNode }) {
     }
     if (!isAdmin) {
       router.push("/");
-      return;
     }
   }, [session, isAdmin, isLoading, router]);
 
@@ -46,7 +44,6 @@ function AdminContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh flex">
-      {/* Sidebar */}
       <aside
         className="w-56 flex-shrink-0 flex flex-col fixed top-0 left-0 bottom-0 z-40"
         style={{
@@ -98,13 +95,17 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 ml-56">
-        <header className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between"
-          style={{ background: "rgba(2, 6, 23, 0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+        <header
+          className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between"
+          style={{
+            background: "rgba(2, 6, 23, 0.8)",
+            backdropFilter: "blur(12px)",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+          }}
         >
           <h2 className="text-lg font-bold text-white font-[family-name:var(--font-display)]">
-            {navItems.find(n => (n.href === "/admin" ? pathname === "/admin" : pathname.startsWith(n.href)))?.label || "Admin"}
+            {navItems.find((item) => (item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)))?.label || "Admin"}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -122,9 +123,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <div className="p-6">
-          {children}
-        </div>
+        <div className="p-6">{children}</div>
       </main>
     </div>
   );

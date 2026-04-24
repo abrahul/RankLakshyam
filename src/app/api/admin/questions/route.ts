@@ -5,6 +5,11 @@ import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
 import Topic from "@/lib/db/models/Topic";
 
+function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
+  const first = topic?.categoryId || topic?.categoryIds?.[0];
+  return first ? new mongoose.Types.ObjectId(String(first)) : null;
+}
+
 function escapeRegex(input: string) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -109,8 +114,9 @@ export async function POST(request: Request) {
     await connectDB();
 
     // Derive category from topic (source of truth)
-    const topic = await Topic.findById(String(topicId)).select({ categoryId: 1 }).lean();
-    if (!topic?.categoryId) {
+    const topic = await Topic.findById(String(topicId)).select({ categoryId: 1, categoryIds: 1 }).lean();
+    const primaryCategoryId = getPrimaryCategoryId(topic);
+    if (!primaryCategoryId) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_INPUT", message: "Invalid topicId (no category linked)", statusCode: 400 } },
         { status: 400 }
@@ -133,7 +139,7 @@ export async function POST(request: Request) {
       })),
       answer: resolvedAnswer,
       explanation: { en: explanation?.en || "", ml: explanation?.ml || "" },
-      categoryId: topic.categoryId,
+      categoryId: primaryCategoryId,
       topicId,
       subtopicId: resolvedSubtopicId,
       examTags: resolvedExamTags,

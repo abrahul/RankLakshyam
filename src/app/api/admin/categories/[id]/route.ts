@@ -56,7 +56,7 @@ export async function DELETE(
 
     const [hasExams, hasTopics] = await Promise.all([
       Exam.exists({ categoryId: id }),
-      Topic.exists({ categoryId: id }),
+      Topic.exists({ $or: [{ categoryId: id }, { categoryIds: id }] }),
     ]);
 
     if (hasExams || hasTopics) {
@@ -90,4 +90,3 @@ export async function DELETE(
     );
   }
 }
-
