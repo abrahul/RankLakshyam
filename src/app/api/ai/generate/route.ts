@@ -132,6 +132,9 @@ export async function POST(request: Request) {
       examTags,
       tags: parsed.tags ?? [],
       difficulty: parsed.difficulty,
+      level: parsed.level,
+      exam: String(parsed.exam || "").trim(),
+      examCode: String(parsed.examCode || "").trim(),
       language: "en",
       questionStyle: parsed.questionStyle,
       sourceType:

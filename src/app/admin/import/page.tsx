@@ -235,7 +235,7 @@ export default function ImportPage() {
           <p><code className="text-primary-300">correctOption</code> — &quot;A&quot;, &quot;B&quot;, &quot;C&quot;, or &quot;D&quot; (required)</p>
           <p><code className="text-primary-300">explanation</code> — {`{ en, ml }`} (optional)</p>
           <p><code className="text-primary-300">topicId</code> — Existing topic ID from Topics admin (required). Example: <code className="text-primary-300">Kerala History</code></p>
-          <p><code className="text-primary-300">subtopicId</code> — Existing Subtopic Mongo ObjectId (optional). Use the subtopic record ID, not a slug or label.</p>
+          <p><code className="text-primary-300">subtopicId</code> — Existing Subtopic Mongo ObjectId (optional). You can also send <code className="text-primary-300">subTopic</code> with the exact subtopic name shown in admin.</p>
           <p><code className="text-primary-300">difficulty</code> — 1 to 5 (default: 2)</p>
           <p><code className="text-primary-300">questionStyle</code> — {QUESTION_STYLE_VALUES.join(", ")} (default: direct)</p>
           <p><code className="text-primary-300">level</code> — 10th_level, plus2_level, degree_level, other_exams</p>

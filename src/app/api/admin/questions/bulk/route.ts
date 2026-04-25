@@ -3,12 +3,31 @@ import mongoose from "mongoose";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import SubTopic from "@/lib/db/models/SubTopic";
 import Topic from "@/lib/db/models/Topic";
 import { DEFAULT_QUESTION_STYLE, QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
   const first = topic?.categoryId || topic?.categoryIds?.[0];
   return first ? new mongoose.Types.ObjectId(String(first)) : null;
+}
+
+async function resolveSubtopicId(rawSubtopic: unknown, topicId: string) {
+  if (typeof rawSubtopic !== "string") return undefined;
+  const value = rawSubtopic.trim();
+  if (!value) return undefined;
+  if (mongoose.isValidObjectId(value)) {
+    return new mongoose.Types.ObjectId(value);
+  }
+
+  const subtopic = await SubTopic.findOne({
+    topicId,
+    $or: [{ "name.en": value }, { "name.ml": value }],
+  })
+    .select({ _id: 1 })
+    .lean();
+
+  return subtopic?._id ? new mongoose.Types.ObjectId(String(subtopic._id)) : null;
 }
 
 // POST bulk import questions
@@ -68,10 +87,12 @@ export async function POST(request: Request) {
           results.skipped++;
           continue;
         }
-        const resolvedSubtopicId =
-          q.subtopicId && mongoose.isValidObjectId(q.subtopicId)
-            ? new mongoose.Types.ObjectId(q.subtopicId)
-            : undefined;
+        const resolvedSubtopicId = await resolveSubtopicId(q.subtopicId || q.subTopic, String(q.topicId));
+        if ((q.subtopicId || q.subTopic) && resolvedSubtopicId === null) {
+          results.errors.push(`Q${i + 1}: Invalid subtopic for topic ${q.topicId}`);
+          results.skipped++;
+          continue;
+        }
         const resolvedExamTags = Array.isArray(q.examTags)
           ? q.examTags
               .filter((id: unknown) => typeof id === "string" && mongoose.isValidObjectId(id))
@@ -91,6 +112,9 @@ export async function POST(request: Request) {
           examTags: resolvedExamTags,
           tags: q.tags || [],
           difficulty: q.difficulty || 2,
+          level: q.level || "10th_level",
+          exam: typeof q.exam === "string" ? q.exam.trim() : "",
+          examCode: typeof q.examCode === "string" ? q.examCode.trim() : "",
           language: q.language === "ml" || q.language === "mixed" ? q.language : "en",
           questionStyle: q.questionStyle || DEFAULT_QUESTION_STYLE,
           pyq: q.pyq || undefined,

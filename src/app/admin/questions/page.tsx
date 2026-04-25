@@ -9,6 +9,7 @@ interface QuestionRow {
   correctOption: string;
   topicId: string;
   subTopic?: string;
+  subtopicId?: string;
   difficulty: number;
   isVerified: boolean;
   level?: string;
@@ -211,6 +212,7 @@ function QuestionModal({ editId, topics, onClose, onSaved }: { editId: string | 
     const payload = {
       ...form,
       topicId: currentTopicId,
+      subtopicId: form.subTopic,
       tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
     };
     const url = editId ? `/api/admin/questions/${editId}` : "/api/admin/questions";

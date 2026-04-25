@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import SubTopic from "@/lib/db/models/SubTopic";
 import Topic from "@/lib/db/models/Topic";
 import { DEFAULT_QUESTION_STYLE, QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
@@ -13,6 +14,24 @@ function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unkno
 
 function escapeRegex(input: string) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function resolveSubtopicId(rawSubtopic: unknown, topicId: string) {
+  if (typeof rawSubtopic !== "string") return undefined;
+  const value = rawSubtopic.trim();
+  if (!value) return undefined;
+  if (mongoose.isValidObjectId(value)) {
+    return new mongoose.Types.ObjectId(value);
+  }
+
+  const subtopic = await SubTopic.findOne({
+    topicId,
+    $or: [{ "name.en": value }, { "name.ml": value }],
+  })
+    .select({ _id: 1 })
+    .lean();
+
+  return subtopic?._id ? new mongoose.Types.ObjectId(String(subtopic._id)) : null;
 }
 
 // GET all questions (admin view with answers)
@@ -29,6 +48,7 @@ export async function GET(request: Request) {
   const topicId = searchParams.get("topicId") || searchParams.get("topic");
   const subtopicId = searchParams.get("subtopicId") || searchParams.get("subTopic");
   const examId = searchParams.get("examId");
+  const level = searchParams.get("level");
   const verified = searchParams.get("verified");
   const search = searchParams.get("search");
 
@@ -44,6 +64,9 @@ export async function GET(request: Request) {
   }
   if (examId && mongoose.isValidObjectId(examId)) {
     filter.examTags = new mongoose.Types.ObjectId(examId);
+  }
+  if (level && ["10th_level", "plus2_level", "degree_level", "other_exams"].includes(level)) {
+    filter.level = level;
   }
   if (verified === "true") filter.isVerified = true;
   if (verified === "false") filter.isVerified = false;
@@ -65,9 +88,16 @@ export async function GET(request: Request) {
     Question.countDocuments(filter),
   ]);
 
+  const normalizedQuestions = questions.map((question) => ({
+    ...question,
+    correctOption: String(question.answer || ""),
+    subTopic: question.subtopicId ? String(question.subtopicId) : "",
+    subtopicId: question.subtopicId ? String(question.subtopicId) : "",
+  }));
+
   return NextResponse.json({
     success: true,
-    data: questions,
+    data: normalizedQuestions,
     meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
@@ -87,7 +117,11 @@ export async function POST(request: Request) {
       explanation,
       topicId,
       subtopicId,
+      subTopic,
       examTags,
+      level,
+      exam,
+      examCode,
       tags,
       difficulty,
       language,
@@ -137,8 +171,16 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const resolvedSubtopicId =
-      subtopicId && mongoose.isValidObjectId(subtopicId) ? new mongoose.Types.ObjectId(subtopicId) : undefined;
+    const resolvedSubtopicId = await resolveSubtopicId(subtopicId || subTopic, String(topicId));
+    if ((subtopicId || subTopic) && resolvedSubtopicId === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "INVALID_INPUT", message: "Invalid subtopic for the selected topic", statusCode: 400 },
+        },
+        { status: 400 }
+      );
+    }
     const resolvedExamTags = Array.isArray(examTags)
       ? examTags
           .filter((id: unknown) => typeof id === "string" && mongoose.isValidObjectId(id))
@@ -160,6 +202,9 @@ export async function POST(request: Request) {
       examTags: resolvedExamTags,
       tags: tags || [],
       difficulty: difficulty || 2,
+      level: level || "10th_level",
+      exam: typeof exam === "string" ? exam.trim() : "",
+      examCode: typeof examCode === "string" ? examCode.trim() : "",
       language: language === "ml" || language === "mixed" ? language : "en",
       questionStyle: questionStyle || DEFAULT_QUESTION_STYLE,
       pyq: pyq || undefined,
