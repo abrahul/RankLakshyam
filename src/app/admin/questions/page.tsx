@@ -68,6 +68,7 @@ export default function QuestionsPage() {
   const [subTopicFilter, setSubTopicFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [verifiedFilter, setVerifiedFilter] = useState("");
+  const [sortFilter, setSortFilter] = useState("createdAt_desc");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -112,6 +113,7 @@ export default function QuestionsPage() {
       if (subTopicFilter) params.set("subTopic", subTopicFilter);
       if (categoryFilter) params.set("categoryId", categoryFilter);
       if (verifiedFilter) params.set("verified", verifiedFilter);
+      if (sortFilter) params.set("sort", sortFilter);
       const res = await fetch(`/api/admin/questions?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -120,7 +122,7 @@ export default function QuestionsPage() {
       }
       setLoading(false);
     },
-    [search, topicFilter, subTopicFilter, categoryFilter, verifiedFilter]
+    [search, topicFilter, subTopicFilter, categoryFilter, verifiedFilter, sortFilter]
   );
 
   useEffect(() => {
@@ -210,6 +212,15 @@ export default function QuestionsPage() {
           <option value="">All Status</option>
           <option value="true">✅ Verified</option>
           <option value="false">⚠️ Unverified</option>
+        </select>
+        <select
+          value={sortFilter}
+          onChange={(e) => setSortFilter(e.target.value)}
+          style={{ colorScheme: "dark" }}
+          className={selectCls}
+        >
+          <option value="createdAt_desc">Newest Added</option>
+          <option value="createdAt_asc">Oldest Added</option>
         </select>
         <button
           onClick={() => {

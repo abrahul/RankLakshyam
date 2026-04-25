@@ -67,6 +67,7 @@ export async function GET(request: Request) {
   const examId = searchParams.get("examId");
   const verified = searchParams.get("verified");
   const search = searchParams.get("search");
+  const sort = searchParams.get("sort");
 
   await connectDB();
 
@@ -92,9 +93,10 @@ export async function GET(request: Request) {
   }
 
   const skip = (page - 1) * limit;
+  const sortOrder = sort === "createdAt_asc" ? { createdAt: 1 as const } : { createdAt: -1 as const };
   const [questions, total] = await Promise.all([
     Question.find(filter)
-      .sort({ createdAt: -1 })
+      .sort(sortOrder)
       .skip(skip)
       .limit(limit)
       .lean(),
