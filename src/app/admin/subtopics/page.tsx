@@ -162,6 +162,14 @@ export default function SubTopicsAdminPage() {
     }
   };
 
+  const copySubtopicId = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+    } catch {
+      setError("Failed to copy subtopic ID");
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
@@ -312,8 +320,18 @@ export default function SubTopicsAdminPage() {
                                 <p className="text-xs text-surface-200/40 truncate">
                                   Sort: {st.sortOrder ?? 0}
                                 </p>
+                                <p className="text-xs text-surface-200/30 break-all mt-1">
+                                  ID: {st._id}
+                                </p>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => void copySubtopicId(st._id)}
+                                  className="text-xs text-primary-300/80 hover:text-primary-300 transition-colors"
+                                >
+                                  Copy ID
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => startEdit(st)}
@@ -343,4 +361,3 @@ export default function SubTopicsAdminPage() {
     </div>
   );
 }
-
