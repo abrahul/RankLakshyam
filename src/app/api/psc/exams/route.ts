@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Category from "@/lib/db/models/Category";
 import Exam from "@/lib/db/models/Exam";
+import { categoryMatchesInput } from "@/lib/category-levels";
 
 // GET /api/psc/exams — returns exams from the database, optionally filtered by level name
 export async function GET(request: Request) {
@@ -20,7 +21,10 @@ export async function GET(request: Request) {
   await connectDB();
 
   if (categoryParam) {
-    const category = await Category.findOne({ slug: categoryParam }).lean();
+    const categories = await Category.find({})
+      .select({ _id: 1, slug: 1, name: 1 })
+      .lean();
+    const category = categories.find((entry) => categoryMatchesInput(entry, categoryParam));
     if (!category) {
       return NextResponse.json({ success: true, data: { category: categoryParam, exams: [] } });
     }

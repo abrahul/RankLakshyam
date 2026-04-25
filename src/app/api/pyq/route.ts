@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
-import Question from "@/lib/db/models/Question";
 import Category from "@/lib/db/models/Category";
-import { LEVEL_NAMES } from "@/lib/db/models/Level";
+import Question from "@/lib/db/models/Question";
+import { categoryMatchesLegacyLevel, isLegacyLevelKey } from "@/lib/category-levels";
 import mongoose from "mongoose";
 
 export async function GET(request: Request) {
@@ -29,8 +29,11 @@ export async function GET(request: Request) {
     let resolvedCategoryId: mongoose.Types.ObjectId | null = null;
     if (categoryIdParam && mongoose.isValidObjectId(categoryIdParam)) {
       resolvedCategoryId = new mongoose.Types.ObjectId(categoryIdParam);
-    } else if (legacyLevel && (LEVEL_NAMES as readonly string[]).includes(legacyLevel)) {
-      const category = await Category.findOne({ slug: legacyLevel }).select({ _id: 1 }).lean();
+    } else if (legacyLevel && isLegacyLevelKey(legacyLevel)) {
+      const categories = await Category.find({})
+        .select({ _id: 1, slug: 1, name: 1 })
+        .lean();
+      const category = categories.find((entry) => categoryMatchesLegacyLevel(entry, legacyLevel));
       if (category?._id) resolvedCategoryId = category._id as mongoose.Types.ObjectId;
     }
 

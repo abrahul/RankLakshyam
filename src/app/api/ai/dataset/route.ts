@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
 import Topic from "@/lib/db/models/Topic";
 import Exam from "@/lib/db/models/Exam";
+import Category from "@/lib/db/models/Category";
 import mongoose from "mongoose";
 import {
   GENERATOR_SYSTEM_PROMPT,
@@ -27,6 +28,32 @@ type Style = QuestionStyle;
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
   return topic?.categoryId || topic?.categoryIds?.[0] || null;
+}
+
+function matchesLevel(category: { slug?: string; name?: { en?: string } } | null, level: string) {
+  const haystack = `${category?.slug || ""} ${category?.name?.en || ""}`.toLowerCase();
+  if (level === "degree_level") return haystack.includes("degree");
+  if (level === "plus2_level") return haystack.includes("12th") || haystack.includes("plus two") || haystack.includes("plus2");
+  if (level === "other_exams") return haystack.includes("other");
+  if (level === "10th_level") return haystack.includes("10th");
+  return false;
+}
+
+async function resolveCategoryIdForQuestion(
+  topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined,
+  level: string
+) {
+  const categoryIds = [topic?.categoryId, ...(topic?.categoryIds || [])]
+    .filter(Boolean)
+    .map((value) => String(value));
+
+  if (!categoryIds.length) return null;
+
+  const categories = await Category.find({ _id: { $in: categoryIds } })
+    .select({ _id: 1, slug: 1, name: 1 })
+    .lean();
+  const match = categories.find((category) => matchesLevel(category, level));
+  return match?._id || getPrimaryCategoryId(topic);
 }
 
 const SourceTypeSchema = z.enum(["pyq", "institute", "internet"]);
@@ -227,7 +254,7 @@ export async function POST(request: Request) {
         if (!payload.store) continue;
 
         const topic = await Topic.findById(finalQuestion.topicId).select({ categoryId: 1, categoryIds: 1 }).lean();
-        const categoryId = getPrimaryCategoryId(topic);
+        const categoryId = await resolveCategoryIdForQuestion(topic, finalQuestion.level);
         if (!categoryId) {
           report.skippedInvalid++;
           continue;
@@ -266,7 +293,6 @@ export async function POST(request: Request) {
           examTags,
           tags: finalQuestion.tags ?? [],
           difficulty: finalQuestion.difficulty,
-          level: finalQuestion.level,
           exam: String(finalQuestion.exam || "").trim(),
           examCode: String(finalQuestion.examCode || "").trim(),
           language: "en",
@@ -349,7 +375,6 @@ export async function POST(request: Request) {
                 examTags: variantExamTags,
                 tags: v.tags ?? [],
                 difficulty: v.difficulty,
-                level: v.level,
                 exam: String(v.exam || "").trim(),
                 examCode: String(v.examCode || "").trim(),
                 language: "en",

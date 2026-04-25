@@ -12,6 +12,23 @@ function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unkno
   return first ? new mongoose.Types.ObjectId(String(first)) : null;
 }
 
+function resolveCategoryIdForQuestion(
+  topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined,
+  rawCategoryId: unknown
+) {
+  if (typeof rawCategoryId === "string" && mongoose.isValidObjectId(rawCategoryId)) {
+    const allowed = [topic?.categoryId, ...(topic?.categoryIds || [])]
+      .filter(Boolean)
+      .map((value) => String(value));
+    if (allowed.includes(rawCategoryId)) {
+      return new mongoose.Types.ObjectId(rawCategoryId);
+    }
+    return null;
+  }
+
+  return getPrimaryCategoryId(topic);
+}
+
 function escapeRegex(input: string) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -48,7 +65,6 @@ export async function GET(request: Request) {
   const topicId = searchParams.get("topicId") || searchParams.get("topic");
   const subtopicId = searchParams.get("subtopicId") || searchParams.get("subTopic");
   const examId = searchParams.get("examId");
-  const level = searchParams.get("level");
   const verified = searchParams.get("verified");
   const search = searchParams.get("search");
 
@@ -64,9 +80,6 @@ export async function GET(request: Request) {
   }
   if (examId && mongoose.isValidObjectId(examId)) {
     filter.examTags = new mongoose.Types.ObjectId(examId);
-  }
-  if (level && ["10th_level", "plus2_level", "degree_level", "other_exams"].includes(level)) {
-    filter.level = level;
   }
   if (verified === "true") filter.isVerified = true;
   if (verified === "false") filter.isVerified = false;
@@ -90,6 +103,7 @@ export async function GET(request: Request) {
 
   const normalizedQuestions = questions.map((question) => ({
     ...question,
+    categoryId: question.categoryId ? String(question.categoryId) : "",
     correctOption: String(question.answer || ""),
     subTopic: question.subtopicId ? String(question.subtopicId) : "",
     subtopicId: question.subtopicId ? String(question.subtopicId) : "",
@@ -116,10 +130,10 @@ export async function POST(request: Request) {
       answer,
       explanation,
       topicId,
+      categoryId,
       subtopicId,
       subTopic,
       examTags,
-      level,
       exam,
       examCode,
       tags,
@@ -164,10 +178,10 @@ export async function POST(request: Request) {
 
     // Derive category from topic (source of truth)
     const topic = await Topic.findById(String(topicId)).select({ categoryId: 1, categoryIds: 1 }).lean();
-    const primaryCategoryId = getPrimaryCategoryId(topic);
+    const primaryCategoryId = resolveCategoryIdForQuestion(topic, categoryId);
     if (!primaryCategoryId) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "Invalid topicId (no category linked)", statusCode: 400 } },
+        { success: false, error: { code: "INVALID_INPUT", message: "Invalid categoryId for the selected topic", statusCode: 400 } },
         { status: 400 }
       );
     }
@@ -202,7 +216,6 @@ export async function POST(request: Request) {
       examTags: resolvedExamTags,
       tags: tags || [],
       difficulty: difficulty || 2,
-      level: level || "10th_level",
       exam: typeof exam === "string" ? exam.trim() : "",
       examCode: typeof examCode === "string" ? examCode.trim() : "",
       language: language === "ml" || language === "mixed" ? language : "en",

@@ -8,7 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "db:reset": "npx tsx scripts/reset-db.ts",
-    "db:seed:categories": "npx tsx scripts/seed-categories.ts"
+    "db:seed:categories": "npx tsx scripts/seed-categories.ts",
+    "db:seed:levels": "npx tsx scripts/seed-levels.ts",
+    "db:cleanup:question-level": "npx tsx scripts/cleanup-question-level.ts",
+    "db:repair:question-category": "npx tsx scripts/repair-question-category-from-exam.ts",
+    "db:repair:exam-category": "npx tsx scripts/repair-exam-category-and-drop-levels.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.37.0",

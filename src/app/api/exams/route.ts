@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Exam from "@/lib/db/models/Exam";
 import Category from "@/lib/db/models/Category";
+import { categoryMatchesInput } from "@/lib/category-levels";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 
 // GET /api/exams — fetch exams, optionally filtered by level
@@ -27,7 +28,10 @@ export async function GET(request: Request) {
     if (categoryId) {
       filter.categoryId = categoryId;
     } else if (categorySlug) {
-      const category = await Category.findOne({ slug: categorySlug }).lean();
+      const categories = await Category.find({})
+        .select({ _id: 1, slug: 1, name: 1 })
+        .lean();
+      const category = categories.find((entry) => categoryMatchesInput(entry, categorySlug));
       if (category) {
         filter.categoryId = category._id;
       } else {

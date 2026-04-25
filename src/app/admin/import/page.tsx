@@ -18,7 +18,7 @@ const SAMPLE_JSON = `[
     "subtopicId": "PUT_SUBTOPIC_OBJECT_ID_HERE",
     "difficulty": 2,
     "questionStyle": "direct",
-    "level": "10th_level",
+    "categoryId": "PUT_CATEGORY_OBJECT_ID_HERE",
     "exam": "LDC VARIOUS",
     "examCode": "117/21",
     "tags": ["tag1", "tag2"]
@@ -238,7 +238,7 @@ export default function ImportPage() {
           <p><code className="text-primary-300">subtopicId</code> — Existing Subtopic Mongo ObjectId (optional). You can also send <code className="text-primary-300">subTopic</code> with the exact subtopic name shown in admin.</p>
           <p><code className="text-primary-300">difficulty</code> — 1 to 5 (default: 2)</p>
           <p><code className="text-primary-300">questionStyle</code> — {QUESTION_STYLE_VALUES.join(", ")} (default: direct)</p>
-          <p><code className="text-primary-300">level</code> — 10th_level, plus2_level, degree_level, other_exams</p>
+          <p><code className="text-primary-300">categoryId</code> — Existing Category Mongo ObjectId (optional). If omitted, the topic&apos;s primary category is used.</p>
           <p><code className="text-primary-300">exam</code> — Exam name (e.g. LDC VARIOUS)</p>
           <p><code className="text-primary-300">examCode</code> — Exam code (e.g. 117/21)</p>
         </div>

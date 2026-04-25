@@ -12,6 +12,23 @@ function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unkno
   return first ? new mongoose.Types.ObjectId(String(first)) : null;
 }
 
+function resolveCategoryIdForQuestion(
+  topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined,
+  rawCategoryId: unknown
+) {
+  if (typeof rawCategoryId === "string" && mongoose.isValidObjectId(rawCategoryId)) {
+    const allowed = [topic?.categoryId, ...(topic?.categoryIds || [])]
+      .filter(Boolean)
+      .map((value) => String(value));
+    if (allowed.includes(rawCategoryId)) {
+      return new mongoose.Types.ObjectId(rawCategoryId);
+    }
+    return null;
+  }
+
+  return getPrimaryCategoryId(topic);
+}
+
 async function resolveSubtopicId(rawSubtopic: unknown, topicId: string) {
   if (typeof rawSubtopic !== "string") return undefined;
   const value = rawSubtopic.trim();
@@ -81,9 +98,9 @@ export async function POST(request: Request) {
         }
 
         const topic = await Topic.findById(String(q.topicId)).select({ categoryId: 1, categoryIds: 1 }).lean();
-        const primaryCategoryId = getPrimaryCategoryId(topic);
+        const primaryCategoryId = resolveCategoryIdForQuestion(topic, q.categoryId);
         if (!primaryCategoryId) {
-          results.errors.push(`Q${i + 1}: Invalid topicId (no category linked)`);
+          results.errors.push(`Q${i + 1}: Invalid categoryId for topic ${q.topicId}`);
           results.skipped++;
           continue;
         }
@@ -112,7 +129,6 @@ export async function POST(request: Request) {
           examTags: resolvedExamTags,
           tags: q.tags || [],
           difficulty: q.difficulty || 2,
-          level: q.level || "10th_level",
           exam: typeof q.exam === "string" ? q.exam.trim() : "",
           examCode: typeof q.examCode === "string" ? q.examCode.trim() : "",
           language: q.language === "ml" || q.language === "mixed" ? q.language : "en",

@@ -18,7 +18,6 @@ export interface IQuestion extends Document {
   examTags: mongoose.Types.ObjectId[];
   tags: string[];
   difficulty: 1 | 2 | 3 | 4 | 5;
-  level: "10th_level" | "plus2_level" | "degree_level" | "other_exams";
   exam: string;
   examCode: string;
   language: "en" | "ml" | "mixed";
@@ -86,11 +85,6 @@ const QuestionSchema = new Schema<IQuestion>(
     examTags: [{ type: Schema.Types.ObjectId, ref: "Exam" }],
     tags: [String],
     difficulty: { type: Number, min: 1, max: 5, default: 2 },
-    level: {
-      type: String,
-      enum: ["10th_level", "plus2_level", "degree_level", "other_exams"],
-      default: "10th_level",
-    },
     exam: { type: String, default: "" },
     examCode: { type: String, default: "" },
     language: { type: String, enum: ["en", "ml", "mixed"], default: "en" },

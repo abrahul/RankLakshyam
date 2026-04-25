@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
+import Exam from "@/lib/db/models/Exam";
 import Question from "@/lib/db/models/Question";
 
 export async function GET(request: Request) {
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
     const topicId = searchParams.get("topicId") || searchParams.get("topic");
     const subtopicId = searchParams.get("subtopicId") || searchParams.get("subTopic");
     const examId = searchParams.get("examId");
+    const exam = searchParams.get("exam");
     const difficulty = searchParams.get("difficulty");
     const language = searchParams.get("language");
     const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
@@ -26,6 +28,7 @@ export async function GET(request: Request) {
     await connectDB();
 
     const filter: Record<string, unknown> = { isVerified: true };
+    const andFilters: Array<Record<string, unknown>> = [];
     if (categoryId) {
       if (!mongoose.isValidObjectId(categoryId)) {
         return NextResponse.json(
@@ -53,6 +56,24 @@ export async function GET(request: Request) {
         );
       }
       filter.examTags = new mongoose.Types.ObjectId(examId);
+    } else if (exam && exam.length <= 128) {
+      const examDoc = await Exam.findOne({
+        $or: [{ name: exam }, { code: exam }],
+      })
+        .select({ _id: 1, name: 1, code: 1 })
+        .lean();
+
+      if (examDoc?._id) {
+        andFilters.push({
+          $or: [
+          { examTags: examDoc._id },
+          { exam: String(examDoc.name || "") },
+          ...(examDoc.code ? [{ examCode: String(examDoc.code) }] : []),
+          ],
+        });
+      } else {
+        andFilters.push({ $or: [{ exam }, { examCode: exam }] });
+      }
     }
     if (difficulty) {
       const d = parseInt(difficulty, 10);
@@ -60,6 +81,9 @@ export async function GET(request: Request) {
     }
     if (language && (language === "en" || language === "ml" || language === "mixed")) {
       filter.language = language;
+    }
+    if (andFilters.length) {
+      filter.$and = andFilters;
     }
 
     const skip = (page - 1) * limit;

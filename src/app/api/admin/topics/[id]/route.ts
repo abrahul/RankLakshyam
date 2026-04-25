@@ -4,7 +4,7 @@ import { connectDB } from "@/lib/db/connection";
 import Topic from "@/lib/db/models/Topic";
 import mongoose from "mongoose";
 
-// PUT /api/admin/topics/[id] — update topic fields (levelId, name, icon, etc.)
+// PUT /api/admin/topics/[id] — update topic fields (categoryIds, name, icon, etc.)
 export async function PUT(
   request: Request,
   { params }: RouteContext<"/api/admin/topics/[id]">

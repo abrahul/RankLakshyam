@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
 import SubTopic from "@/lib/db/models/SubTopic";
+import Topic from "@/lib/db/models/Topic";
 import { QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
 async function resolveSubtopicId(rawSubtopic: unknown, topicId: string) {
@@ -22,6 +23,24 @@ async function resolveSubtopicId(rawSubtopic: unknown, topicId: string) {
     .lean();
 
   return subtopic?._id ? new mongoose.Types.ObjectId(String(subtopic._id)) : null;
+}
+
+function resolveCategoryIdForQuestion(
+  topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined,
+  rawCategoryId: unknown
+) {
+  if (typeof rawCategoryId === "string" && mongoose.isValidObjectId(rawCategoryId)) {
+    const allowed = [topic?.categoryId, ...(topic?.categoryIds || [])]
+      .filter(Boolean)
+      .map((value) => String(value));
+    if (allowed.includes(rawCategoryId)) {
+      return new mongoose.Types.ObjectId(rawCategoryId);
+    }
+    return null;
+  }
+
+  const primary = topic?.categoryId || topic?.categoryIds?.[0];
+  return primary ? new mongoose.Types.ObjectId(String(primary)) : null;
 }
 
 // GET single question
@@ -47,6 +66,7 @@ export async function GET(
     success: true,
     data: {
       ...question,
+      categoryId: question.categoryId ? String(question.categoryId) : "",
       correctOption: String(question.answer || ""),
       subTopic: question.subtopicId ? String(question.subtopicId) : "",
       subtopicId: question.subtopicId ? String(question.subtopicId) : "",
@@ -91,6 +111,20 @@ export async function PUT(
     }
 
     const topicId = typeof body.topicId === "string" && body.topicId.trim() ? body.topicId : String(existingQuestion.topicId);
+    const topic = await Topic.findById(topicId).select({ categoryId: 1, categoryIds: 1 }).lean();
+    const resolvedCategoryId = Object.prototype.hasOwnProperty.call(body, "categoryId")
+      ? resolveCategoryIdForQuestion(topic, body.categoryId)
+      : undefined;
+    if (Object.prototype.hasOwnProperty.call(body, "categoryId") && resolvedCategoryId === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "INVALID_INPUT", message: "Invalid categoryId for the selected topic", statusCode: 400 },
+        },
+        { status: 400 }
+      );
+    }
+
     const hasSubtopicField = Object.prototype.hasOwnProperty.call(body, "subtopicId") || Object.prototype.hasOwnProperty.call(body, "subTopic");
     const resolvedSubtopicId = hasSubtopicField
       ? await resolveSubtopicId(body.subtopicId ?? body.subTopic, topicId)
@@ -108,8 +142,12 @@ export async function PUT(
 
     const update: Record<string, unknown> = { ...body, topicId };
     delete update.subTopic;
+    delete update.level;
     if (hasSubtopicField) {
       update.subtopicId = resolvedSubtopicId ?? null;
+    }
+    if (resolvedCategoryId) {
+      update.categoryId = resolvedCategoryId;
     }
 
     const question = await Question.findByIdAndUpdate(

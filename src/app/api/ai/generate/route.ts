@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
+import Category from "@/lib/db/models/Category";
 import Question from "@/lib/db/models/Question";
 import Topic from "@/lib/db/models/Topic";
 import Exam from "@/lib/db/models/Exam";
@@ -15,6 +16,32 @@ import { PscQuestionJsonSchema, PscQuestionSchema } from "@/app/api/ai/schema";
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
   return topic?.categoryId || topic?.categoryIds?.[0] || null;
+}
+
+function matchesLevel(category: { slug?: string; name?: { en?: string } } | null, level: string) {
+  const haystack = `${category?.slug || ""} ${category?.name?.en || ""}`.toLowerCase();
+  if (level === "degree_level") return haystack.includes("degree");
+  if (level === "plus2_level") return haystack.includes("12th") || haystack.includes("plus two") || haystack.includes("plus2");
+  if (level === "other_exams") return haystack.includes("other");
+  if (level === "10th_level") return haystack.includes("10th");
+  return false;
+}
+
+async function resolveCategoryIdForQuestion(
+  topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined,
+  level: string
+) {
+  const categoryIds = [topic?.categoryId, ...(topic?.categoryIds || [])]
+    .filter(Boolean)
+    .map((value) => String(value));
+
+  if (!categoryIds.length) return null;
+
+  const categories = await Category.find({ _id: { $in: categoryIds } })
+    .select({ _id: 1, slug: 1, name: 1 })
+    .lean();
+  const match = categories.find((category) => matchesLevel(category, level));
+  return match?._id || getPrimaryCategoryId(topic);
 }
 
 export async function POST(request: Request) {
@@ -95,7 +122,7 @@ export async function POST(request: Request) {
     await connectDB();
 
     const topic = await Topic.findById(parsed.topicId).select({ categoryId: 1, categoryIds: 1 }).lean();
-    const primaryCategoryId = getPrimaryCategoryId(topic);
+    const primaryCategoryId = await resolveCategoryIdForQuestion(topic, parsed.level);
     if (!primaryCategoryId) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_INPUT", message: "Invalid topicId (no category linked)", statusCode: 400 } },
@@ -132,7 +159,6 @@ export async function POST(request: Request) {
       examTags,
       tags: parsed.tags ?? [],
       difficulty: parsed.difficulty,
-      level: parsed.level,
       exam: String(parsed.exam || "").trim(),
       examCode: String(parsed.examCode || "").trim(),
       language: "en",
