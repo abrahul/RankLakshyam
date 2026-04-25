@@ -5,6 +5,14 @@ import { connectDB } from "@/lib/db/connection";
 import Exam from "@/lib/db/models/Exam";
 import Question from "@/lib/db/models/Question";
 
+function normalizeTopicParam(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -14,7 +22,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get("categoryId");
-    const topicId = searchParams.get("topicId") || searchParams.get("topic");
+    const topicIdParam = searchParams.get("topicId") || searchParams.get("topic");
     const subtopicId = searchParams.get("subtopicId") || searchParams.get("subTopic");
     const examId = searchParams.get("examId");
     const exam = searchParams.get("exam");
@@ -38,6 +46,7 @@ export async function GET(request: Request) {
       }
       filter.categoryId = new mongoose.Types.ObjectId(categoryId);
     }
+    const topicId = topicIdParam ? normalizeTopicParam(topicIdParam) : null;
     if (topicId && topicId.length <= 64) filter.topicId = topicId;
     if (subtopicId) {
       if (!mongoose.isValidObjectId(subtopicId)) {
