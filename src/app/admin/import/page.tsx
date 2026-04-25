@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
 const SAMPLE_JSON = `[
@@ -26,6 +27,7 @@ const SAMPLE_JSON = `[
 ]`;
 
 export default function ImportPage() {
+  const searchParams = useSearchParams();
   const [jsonInput, setJsonInput] = useState("");
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{
@@ -35,6 +37,42 @@ export default function ImportPage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<unknown[] | null>(null);
+  const [scopeLabel, setScopeLabel] = useState("");
+  const scopedTopicId = searchParams.get("topicId") || "";
+  const scopedSubtopicId = searchParams.get("subtopicId") || "";
+
+  useEffect(() => {
+    async function loadScopeLabel() {
+      if (!scopedTopicId) {
+        setScopeLabel("");
+        return;
+      }
+
+      try {
+        const topicsRes = await fetch("/api/topics");
+        const topicsData = await topicsRes.json();
+        const topics = topicsData.success ? (topicsData.data || []) : [];
+        const topic = topics.find((entry: { id?: string; name?: { en?: string } }) => entry.id === scopedTopicId);
+
+        if (!scopedSubtopicId) {
+          setScopeLabel(topic?.name?.en ? `Topic scope: ${topic.name.en}` : `Topic scope: ${scopedTopicId}`);
+          return;
+        }
+
+        const subtopicsRes = await fetch(`/api/subtopics?${new URLSearchParams({ topicId: scopedTopicId })}`);
+        const subtopicsData = await subtopicsRes.json();
+        const subtopics = subtopicsData.success ? (subtopicsData.data || []) : [];
+        const subtopic = subtopics.find((entry: { _id?: string; name?: { en?: string } }) => entry._id === scopedSubtopicId);
+        const topicLabel = topic?.name?.en || scopedTopicId;
+        const subtopicLabel = subtopic?.name?.en || scopedSubtopicId;
+        setScopeLabel(`Subtopic scope: ${topicLabel} / ${subtopicLabel}`);
+      } catch {
+        setScopeLabel(scopedSubtopicId ? `Subtopic scope: ${scopedTopicId} / ${scopedSubtopicId}` : `Topic scope: ${scopedTopicId}`);
+      }
+    }
+
+    void loadScopeLabel();
+  }, [scopedTopicId, scopedSubtopicId]);
 
   const handlePreview = () => {
     try {
@@ -61,7 +99,11 @@ export default function ImportPage() {
       const res = await fetch("/api/admin/questions/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questions: preview }),
+        body: JSON.stringify({
+          questions: preview,
+          ...(scopedTopicId ? { topicId: scopedTopicId } : {}),
+          ...(scopedSubtopicId ? { subtopicId: scopedSubtopicId } : {}),
+        }),
       });
 
       const data = await res.json();
@@ -100,6 +142,16 @@ export default function ImportPage() {
         Import questions in bulk using JSON format. Maximum 100 questions per batch.
         Duplicate questions (same English text) will be skipped.
       </p>
+
+      {scopeLabel ? (
+        <div className="glass-card-light p-4 mb-4 border border-primary-400/20">
+          <p className="text-xs text-primary-300 font-semibold mb-1">Scoped Import</p>
+          <p className="text-sm text-surface-200/70">{scopeLabel}</p>
+          <p className="text-xs text-surface-200/40 mt-1">
+            `topicId` and `subtopicId` can be omitted from the JSON in this mode.
+          </p>
+        </div>
+      ) : null}
 
       {/* Result Banner */}
       {result && (
@@ -234,8 +286,8 @@ export default function ImportPage() {
           <p><code className="text-primary-300">options</code> — Array of 4 objects with key (A-D), en, ml</p>
           <p><code className="text-primary-300">correctOption</code> — &quot;A&quot;, &quot;B&quot;, &quot;C&quot;, or &quot;D&quot; (required)</p>
           <p><code className="text-primary-300">explanation</code> — {`{ en, ml }`} (optional)</p>
-          <p><code className="text-primary-300">topicId</code> — Existing topic ID from Topics admin (required). Example: <code className="text-primary-300">Kerala History</code></p>
-          <p><code className="text-primary-300">subtopicId</code> — Existing Subtopic Mongo ObjectId (optional). You can also send <code className="text-primary-300">subTopic</code> with the exact subtopic name shown in admin.</p>
+          <p><code className="text-primary-300">topicId</code> — Existing topic ID from Topics admin. Required in general import, optional in scoped topic/subtopic import.</p>
+          <p><code className="text-primary-300">subtopicId</code> — Existing Subtopic Mongo ObjectId (optional). In scoped subtopic import, this can be omitted.</p>
           <p><code className="text-primary-300">difficulty</code> — 1 to 5 (default: 2)</p>
           <p><code className="text-primary-300">questionStyle</code> — {QUESTION_STYLE_VALUES.join(", ")} (default: direct)</p>
           <p><code className="text-primary-300">categoryId</code> — Existing Category Mongo ObjectId (optional). If omitted, the topic&apos;s primary category is used.</p>

@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { questions } = body;
+    const { questions, topicId: scopedTopicId, subtopicId: scopedSubtopicId, subTopic: scopedSubTopic } = body;
 
     if (!Array.isArray(questions) || questions.length === 0) {
       return NextResponse.json(
@@ -73,12 +73,23 @@ export async function POST(request: Request) {
     await connectDB();
 
     const results = { created: 0, skipped: 0, errors: [] as string[] };
+    const scopedTopic = typeof scopedTopicId === "string" && scopedTopicId.trim() ? scopedTopicId.trim() : "";
+    const scopedSubtopic = typeof scopedSubtopicId === "string" && scopedSubtopicId.trim()
+      ? scopedSubtopicId.trim()
+      : typeof scopedSubTopic === "string" && scopedSubTopic.trim()
+        ? scopedSubTopic.trim()
+        : "";
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       try {
+        const effectiveTopicId =
+          typeof q.topicId === "string" && q.topicId.trim()
+            ? q.topicId.trim()
+            : scopedTopic;
+        const effectiveSubtopic = q.subtopicId || q.subTopic || scopedSubtopic;
         const resolvedAnswer = q.correctOption || q.answer;
-        if (!q.text?.en || !q.options || q.options.length !== 4 || !resolvedAnswer || !q.topicId) {
+        if (!q.text?.en || !q.options || q.options.length !== 4 || !resolvedAnswer || !effectiveTopicId) {
           results.errors.push(`Q${i + 1}: Missing required fields`);
           results.skipped++;
           continue;
@@ -97,16 +108,16 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const topic = await Topic.findById(String(q.topicId)).select({ categoryId: 1, categoryIds: 1 }).lean();
+        const topic = await Topic.findById(effectiveTopicId).select({ categoryId: 1, categoryIds: 1 }).lean();
         const primaryCategoryId = resolveCategoryIdForQuestion(topic, q.categoryId);
         if (!primaryCategoryId) {
-          results.errors.push(`Q${i + 1}: Invalid categoryId for topic ${q.topicId}`);
+          results.errors.push(`Q${i + 1}: Invalid categoryId for topic ${effectiveTopicId}`);
           results.skipped++;
           continue;
         }
-        const resolvedSubtopicId = await resolveSubtopicId(q.subtopicId || q.subTopic, String(q.topicId));
-        if ((q.subtopicId || q.subTopic) && resolvedSubtopicId === null) {
-          results.errors.push(`Q${i + 1}: Invalid subtopic for topic ${q.topicId}`);
+        const resolvedSubtopicId = await resolveSubtopicId(effectiveSubtopic, effectiveTopicId);
+        if (effectiveSubtopic && resolvedSubtopicId === null) {
+          results.errors.push(`Q${i + 1}: Invalid subtopic for topic ${effectiveTopicId}`);
           results.skipped++;
           continue;
         }
@@ -124,7 +135,7 @@ export async function POST(request: Request) {
           answer: resolvedAnswer,
           explanation: { en: q.explanation?.en || "", ml: q.explanation?.ml || "" },
           categoryId: primaryCategoryId,
-          topicId: q.topicId,
+          topicId: effectiveTopicId,
           subtopicId: resolvedSubtopicId,
           examTags: resolvedExamTags,
           tags: q.tags || [],

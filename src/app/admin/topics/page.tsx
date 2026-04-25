@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ScopedQuestionImportModal from "@/components/admin/scoped-question-import-modal";
 
 type CategoryRow = {
   _id: string;
@@ -153,6 +154,7 @@ export default function TopicsAdminPage() {
   const [editDailyWeight, setEditDailyWeight] = useState<number>(2);
   const [editSortOrder, setEditSortOrder] = useState<number>(0);
   const [editCategoryIds, setEditCategoryIds] = useState<string[]>([]);
+  const [importTopic, setImportTopic] = useState<TopicRow | null>(null);
 
   const startEdit = (topic: TopicRow) => {
     setEditingId(topic.id);
@@ -373,6 +375,13 @@ export default function TopicsAdminPage() {
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                           type="button"
+                          onClick={() => setImportTopic(topic)}
+                          className="text-xs text-primary-300/80 hover:text-primary-300 transition-colors"
+                        >
+                          Import
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => startEdit(topic)}
                           className="text-xs text-surface-200/60 hover:text-white transition-colors"
                         >
@@ -487,6 +496,13 @@ export default function TopicsAdminPage() {
           </div>
         </div>
       </div>
+
+      <ScopedQuestionImportModal
+        open={!!importTopic}
+        onClose={() => setImportTopic(null)}
+        scopeLabel={importTopic ? `Topic: ${importTopic.name.en}` : ""}
+        topicId={importTopic?.id || ""}
+      />
     </div>
   );
 }

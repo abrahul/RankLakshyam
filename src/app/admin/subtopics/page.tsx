@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ScopedQuestionImportModal from "@/components/admin/scoped-question-import-modal";
 
 type TopicRow = {
   id: string;
@@ -114,6 +115,7 @@ export default function SubTopicsAdminPage() {
   const [editEn, setEditEn] = useState("");
   const [editMl, setEditMl] = useState("");
   const [editSort, setEditSort] = useState<number>(0);
+  const [importSubtopic, setImportSubtopic] = useState<SubTopicRow | null>(null);
 
   const startEdit = (st: SubTopicRow) => {
     setEditingId(st._id);
@@ -327,6 +329,13 @@ export default function SubTopicsAdminPage() {
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <button
                                   type="button"
+                                  onClick={() => setImportSubtopic(st)}
+                                  className="text-xs text-primary-300/80 hover:text-primary-300 transition-colors"
+                                >
+                                  Import
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => void copySubtopicId(st._id)}
                                   className="text-xs text-primary-300/80 hover:text-primary-300 transition-colors"
                                 >
@@ -358,6 +367,18 @@ export default function SubTopicsAdminPage() {
           </div>
         </div>
       )}
+
+      <ScopedQuestionImportModal
+        open={!!importSubtopic}
+        onClose={() => setImportSubtopic(null)}
+        scopeLabel={
+          importSubtopic && selectedTopic
+            ? `Subtopic: ${selectedTopic.name.en} / ${importSubtopic.name.en}`
+            : ""
+        }
+        topicId={importSubtopic?.topicId || selectedTopicId}
+        subtopicId={importSubtopic?._id}
+      />
     </div>
   );
 }
