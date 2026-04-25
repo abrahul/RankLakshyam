@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
 const SAMPLE_JSON = `[
   {
@@ -236,7 +237,7 @@ export default function ImportPage() {
           <p><code className="text-primary-300">topicId</code> — Existing topic ID from Topics admin (required). Example: <code className="text-primary-300">Kerala History</code></p>
           <p><code className="text-primary-300">subtopicId</code> — Existing Subtopic Mongo ObjectId (optional). Use the subtopic record ID, not a slug or label.</p>
           <p><code className="text-primary-300">difficulty</code> — 1 to 5 (default: 2)</p>
-          <p><code className="text-primary-300">questionStyle</code> — direct, concept, statement, negative, indirect (default: direct)</p>
+          <p><code className="text-primary-300">questionStyle</code> — {QUESTION_STYLE_VALUES.join(", ")} (default: direct)</p>
           <p><code className="text-primary-300">level</code> — 10th_level, plus2_level, degree_level, other_exams</p>
           <p><code className="text-primary-300">exam</code> — Exam name (e.g. LDC VARIOUS)</p>
           <p><code className="text-primary-300">examCode</code> — Exam code (e.g. 117/21)</p>

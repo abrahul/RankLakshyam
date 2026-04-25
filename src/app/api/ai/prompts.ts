@@ -1,3 +1,7 @@
+import { QUESTION_STYLE_VALUES } from "@/lib/question-styles";
+
+const QUESTION_STYLE_LIST = QUESTION_STYLE_VALUES.join("|");
+
 export const HARD_CONSTRAINTS = `
 Additional hard constraints:
 - Output must be valid parseable JSON
@@ -25,14 +29,13 @@ STRICT RULES:
 - Malayalam must sound natural and exam-friendly
 - Avoid machine-translated wording
 - Prefer understanding-based framing over plain memory recall where possible
-- If the source safely supports it, generate concept-based, statement-based, negative, or indirect framing when appropriate
+- If the source safely supports it, generate statement, assertion-reason, match, order, odd-one, fill-blank, or multi-correct framing when appropriate
 - If the source is too limited, generate the safest direct factual question instead
 
 QUESTION STYLE PRIORITY:
-1. Concept-based if reliable
-2. Statement-based if reliable
-3. Indirect factual if reliable
-4. Direct factual if needed for safety
+1. Assertion-reason or statement if reliable
+2. Match, order, odd-one, fill-blank, or multi-correct if reliable
+3. Direct factual if needed for safety
 
 CURRENT AFFAIRS RULE:
 For current affairs, avoid overly shallow questions like:
@@ -43,9 +46,9 @@ Prefer:
 DIFFICULTY SCALE:
 1 = Direct fact
 2 = Specific fact
-3 = Concept + elimination
-4 = Statement-based / negative / close options
-5 = Analytical / multi-step / inference
+3 = Direct with elimination or structured recall
+4 = Statement / assertion-reason / multi-correct
+5 = Match / order / close-elimination / inference
 
 OUTPUT FORMAT:
 Return ONLY valid JSON.
@@ -74,7 +77,7 @@ Schema:
   "exam": "string",
   "examCode": "string",
   "tags": ["string"],
-  "questionStyle": "direct|concept|statement|negative|indirect"
+  "questionStyle": "${QUESTION_STYLE_LIST}"
 }
 
 TOPIC GUIDELINES:
@@ -191,7 +194,7 @@ Return ONLY valid JSON.
     "exam": "string",
     "examCode": "string",
     "tags": ["string"],
-    "questionStyle": "direct|concept|statement|negative|indirect"
+    "questionStyle": "${QUESTION_STYLE_LIST}"
   }
 }
 
@@ -225,7 +228,7 @@ RULES:
 - Make Malayalam natural, concise, and exam-friendly
 - Remove machine-translation feel
 - Use wording familiar to Kerala PSC aspirants
-- Improve clarity of statement-based and negative questions carefully
+- Improve clarity of statement, assertion-reason, and multi-correct questions carefully
 - Make “incorrect/not correct” style wording especially clear
 - Keep English unchanged unless clearly awkward
 - Do not introduce new facts
@@ -257,7 +260,7 @@ Schema:
   "exam": "string",
   "examCode": "string",
   "tags": ["string"],
-  "questionStyle": "direct|concept|statement|negative|indirect"
+  "questionStyle": "${QUESTION_STYLE_LIST}"
 }
 
 Return JSON only.
@@ -276,11 +279,11 @@ You are a PSC Question Variation Generator.
 Your task is to generate exactly 5 high-quality Kerala PSC-style variations from one base question.
 
 You must generate these 5 variations:
-1. Reverse question
-2. Concept-based version
-3. Negative or elimination version
-4. Statement-based version
-5. Higher-difficulty version
+1. Fill-in-the-blank version
+2. Statement-based version
+3. Assertion-reason version
+4. Odd-one-out or match version
+5. Higher-difficulty multi-correct or order version
 
 RULES:
 - Maintain factual accuracy
@@ -322,14 +325,14 @@ Each object must follow this schema:
   "exam": "string",
   "examCode": "string",
   "tags": ["string"],
-  "questionStyle": "direct|concept|statement|negative|indirect"
+  "questionStyle": "${QUESTION_STYLE_LIST}"
 }
 
 IMPORTANT:
 - Keep topicId and subTopic aligned with the original
-- One output must be questionStyle = "concept"
 - One output must be questionStyle = "statement"
-- One output must be questionStyle = "negative"
+- One output must be questionStyle = "assertion-reason"
+- One output must be questionStyle = "fill-blank"
 - One output should be the hardest of the five
 - Keep at least one variation moderate and one hard
 
@@ -406,9 +409,9 @@ RULES:
   - 10 medium
   - 5 hard
 - Include:
-  - 2 statement-based
-  - 2 negative/elimination
-  - 1 higher-difficulty conceptual/inference
+  - 3 statement/assertion-reason
+  - 4 structured-format questions (match, order, odd-one, fill-blank)
+  - 2 multi-correct
 - Prefer 30% questions from user weak areas
 - Avoid repeating the same subtopic consecutively
 - Keep a good topic spread across history, geography, polity, science, current affairs, renaissance, and reasoning/language
@@ -424,11 +427,14 @@ Return ONLY valid JSON.
     "hard": 5
   },
   "styleSplit": {
-    "direct": 8,
-    "concept": 6,
-    "statement": 2,
-    "negative": 2,
-    "indirect": 2
+    "direct": 5,
+    "statement": 3,
+    "assertion-reason": 2,
+    "match": 2,
+    "order": 2,
+    "odd-one": 2,
+    "fill-blank": 2,
+    "multi-correct": 2
   },
   "topicTargets": [
     { "topicId": "history", "count": 3 },

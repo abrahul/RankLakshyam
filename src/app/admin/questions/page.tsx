@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { DEFAULT_QUESTION_STYLE, QUESTION_STYLE_OPTIONS, type QuestionStyle } from "@/lib/question-styles";
 
 interface QuestionRow {
   _id: string;
@@ -170,7 +171,7 @@ function QuestionModal({ editId, topics, onClose, onSaved }: { editId: string | 
     subTopic: "",
     tags: "",
     difficulty: 2,
-    questionStyle: "direct",
+    questionStyle: DEFAULT_QUESTION_STYLE as QuestionStyle,
     level: "10th_level",
     exam: "",
     examCode: "",
@@ -188,7 +189,7 @@ function QuestionModal({ editId, topics, onClose, onSaved }: { editId: string | 
           text: q.text, options: q.options, correctOption: q.correctOption,
           explanation: q.explanation || { en: "", ml: "" }, topicId: q.topicId,
           subTopic: q.subTopic || "", tags: (q.tags || []).join(", "),
-          difficulty: q.difficulty || 2, questionStyle: q.questionStyle || "direct",
+          difficulty: q.difficulty || 2, questionStyle: q.questionStyle || DEFAULT_QUESTION_STYLE,
           level: q.level || "10th_level", exam: q.exam || "", examCode: q.examCode || "",
         });
       }
@@ -298,7 +299,7 @@ function QuestionModal({ editId, topics, onClose, onSaved }: { editId: string | 
               <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Difficulty</label><select value={form.difficulty} onChange={(e) => setForm((f) => ({ ...f, difficulty: parseInt(e.target.value) }))} style={{ colorScheme: "dark" }} className={selCls}>{[1, 2, 3, 4, 5].map((d) => (<option key={d} value={d}>{"⭐".repeat(d)} ({d})</option>))}</select></div>
             </div>
 
-            <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Question Style</label><select value={form.questionStyle} onChange={(e) => setForm((f) => ({ ...f, questionStyle: e.target.value }))} style={{ colorScheme: "dark" }} className={selCls}><option value="direct">Direct</option><option value="concept">Concept</option><option value="statement">Statement</option><option value="negative">Negative</option><option value="indirect">Indirect</option></select></div>
+            <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Question Style</label><select value={form.questionStyle} onChange={(e) => setForm((f) => ({ ...f, questionStyle: e.target.value as QuestionStyle }))} style={{ colorScheme: "dark" }} className={selCls}>{QUESTION_STYLE_OPTIONS.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}</select></div>
 
             <div><label className="text-xs text-surface-200/60 font-semibold mb-1.5 block">Tags (comma-separated)</label><input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="e.g. travancore, rulers, kerala" className={inputCls} /></div>
 

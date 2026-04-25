@@ -1,6 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-
-export type QuestionStyle = "direct" | "concept" | "statement" | "negative" | "indirect";
+import { QUESTION_STYLE_VALUES, type QuestionStyle } from "@/lib/question-styles";
 
 export interface IStylePerformance extends Document {
   _id: mongoose.Types.ObjectId;
@@ -18,7 +17,7 @@ const StylePerformanceSchema = new Schema<IStylePerformance>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     questionStyle: {
       type: String,
-      enum: ["direct", "concept", "statement", "negative", "indirect"],
+      enum: [...QUESTION_STYLE_VALUES],
       required: true,
     },
     attempts: { type: Number, default: 0 },

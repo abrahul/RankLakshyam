@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { QUESTION_STYLE_OPTIONS, type QuestionStyle } from "@/lib/question-styles";
 
 type GeneratedQuestion = {
   _id?: string;
@@ -12,7 +13,7 @@ type GeneratedQuestion = {
   topicId: string;
   subTopic: string;
   difficulty: number;
-  questionStyle: "direct" | "concept" | "statement" | "negative" | "indirect";
+  questionStyle: QuestionStyle;
   level: string;
   exam: string;
   examCode: string;
@@ -187,11 +188,11 @@ export default function AdminAiGeneratePage() {
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:border-primary-400/50 focus:outline-none [&>option]:bg-slate-950 [&>option]:text-white"
             >
               <option value="auto">Auto</option>
-              <option value="direct">Direct</option>
-              <option value="concept">Concept</option>
-              <option value="statement">Statement</option>
-              <option value="negative">Negative</option>
-              <option value="indirect">Indirect</option>
+              {QUESTION_STYLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>

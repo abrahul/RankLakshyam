@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
 import Topic from "@/lib/db/models/Topic";
+import { DEFAULT_QUESTION_STYLE, QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
   const first = topic?.categoryId || topic?.categoryIds?.[0];
@@ -47,6 +48,12 @@ export async function POST(request: Request) {
           continue;
         }
 
+        if (q.questionStyle && !QUESTION_STYLE_VALUES.includes(q.questionStyle)) {
+          results.errors.push(`Q${i + 1}: questionStyle must be one of ${QUESTION_STYLE_VALUES.join(", ")}`);
+          results.skipped++;
+          continue;
+        }
+
         // Check for duplicate
         const existing = await Question.findOne({ "text.en": q.text.en });
         if (existing) {
@@ -85,7 +92,7 @@ export async function POST(request: Request) {
           tags: q.tags || [],
           difficulty: q.difficulty || 2,
           language: q.language === "ml" || q.language === "mixed" ? q.language : "en",
-          questionStyle: q.questionStyle || "direct",
+          questionStyle: q.questionStyle || DEFAULT_QUESTION_STYLE,
           pyq: q.pyq || undefined,
           isVerified: q.isVerified ?? true,
           createdBy: guard.userId,

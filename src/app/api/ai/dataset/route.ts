@@ -21,6 +21,9 @@ import {
   PscValidationResultSchema,
   type PscQuestion,
 } from "@/app/api/ai/schema";
+import { QUESTION_STYLE_VALUES, type QuestionStyle } from "@/lib/question-styles";
+
+type Style = QuestionStyle;
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
   return topic?.categoryId || topic?.categoryIds?.[0] || null;
@@ -45,14 +48,15 @@ const DatasetRequestSchema = z.object({
   generatePyqVariants: z.boolean().optional().default(true),
 });
 
-type Style = "direct" | "concept" | "statement" | "negative" | "indirect";
-
 const DEFAULT_MIX: Array<{ style: Style; count: number; difficultyHint: string }> = [
-  { style: "direct", count: 6, difficultyHint: "1-2" },
-  { style: "concept", count: 6, difficultyHint: "3" },
-  { style: "statement", count: 3, difficultyHint: "4" },
-  { style: "negative", count: 3, difficultyHint: "4" },
-  { style: "indirect", count: 2, difficultyHint: "3-4" },
+  { style: "direct", count: 5, difficultyHint: "1-2" },
+  { style: "statement", count: 3, difficultyHint: "3-4" },
+  { style: "assertion-reason", count: 2, difficultyHint: "4" },
+  { style: "match", count: 2, difficultyHint: "3-4" },
+  { style: "order", count: 2, difficultyHint: "3-4" },
+  { style: "odd-one", count: 2, difficultyHint: "3" },
+  { style: "fill-blank", count: 2, difficultyHint: "2-3" },
+  { style: "multi-correct", count: 2, difficultyHint: "4-5" },
 ];
 
 function pickSource(
@@ -63,7 +67,7 @@ function pickSource(
   const pyq = sources.filter((s) => s.sourceType === "pyq");
   const nonPyq = sources.filter((s) => s.sourceType !== "pyq");
 
-  if (style === "direct" && pyq.length) return pyq[idx % pyq.length];
+  if (style === QUESTION_STYLE_VALUES[0] && pyq.length) return pyq[idx % pyq.length];
   if (style !== "direct" && nonPyq.length) return nonPyq[idx % nonPyq.length];
   return sources[idx % sources.length];
 }

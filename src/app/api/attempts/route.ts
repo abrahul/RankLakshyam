@@ -11,6 +11,7 @@ import QuestionProgress from "@/lib/db/models/QuestionProgress";
 import TopicPerformance from "@/lib/db/models/TopicPerformance";
 import StylePerformance from "@/lib/db/models/StylePerformance";
 import TestAttempt from "@/lib/db/models/TestAttempt";
+import { DEFAULT_QUESTION_STYLE, type QuestionStyle } from "@/lib/question-styles";
 import { calculateXP, getTodayIST, round } from "@/lib/utils/scoring";
 import { checkNewBadges, getStreakMilestone, getRank, getNextRank, getBadgeDef } from "@/lib/utils/gamification";
 import mongoose from "mongoose";
@@ -139,8 +140,7 @@ export async function POST(request: Request) {
     // Update per-user performance collections (best-effort, does not affect scoring)
     const now = new Date();
     const questionStyle =
-      (question as unknown as { questionStyle?: "direct" | "concept" | "statement" | "negative" | "indirect" })
-        .questionStyle || "direct";
+      (question as unknown as { questionStyle?: QuestionStyle }).questionStyle || DEFAULT_QUESTION_STYLE;
 
     const questionProgressPromise = (async () => {
       const doc = await QuestionProgress.findOneAndUpdate(

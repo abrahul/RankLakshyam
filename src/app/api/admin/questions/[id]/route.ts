@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import { QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
 // GET single question
 export async function GET(
@@ -36,6 +37,20 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+
+    if (body.questionStyle && !QUESTION_STYLE_VALUES.includes(body.questionStyle)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_INPUT",
+            message: `questionStyle must be one of: ${QUESTION_STYLE_VALUES.join(", ")}`,
+            statusCode: 400,
+          },
+        },
+        { status: 400 }
+      );
+    }
 
     await connectDB();
 

@@ -1,12 +1,7 @@
 import { z } from "zod";
+import { QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
-export const QuestionStyleSchema = z.enum([
-  "direct",
-  "concept",
-  "statement",
-  "negative",
-  "indirect",
-]);
+export const QuestionStyleSchema = z.enum(QUESTION_STYLE_VALUES);
 
 export const OptionKeySchema = z.enum(["A", "B", "C", "D"]);
 
@@ -125,7 +120,7 @@ export const PscQuestionJsonSchema = {
     tags: { type: "array", items: { type: "string" } },
     questionStyle: {
       type: "string",
-      enum: ["direct", "concept", "statement", "negative", "indirect"],
+      enum: [...QUESTION_STYLE_VALUES],
     },
   },
 } as const;

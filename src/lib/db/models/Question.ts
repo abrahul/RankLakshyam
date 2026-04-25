@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { DEFAULT_QUESTION_STYLE, QUESTION_STYLE_VALUES, type QuestionStyle } from "@/lib/question-styles";
 
 export interface IQuestion extends Document {
   _id: mongoose.Types.ObjectId;
@@ -18,7 +19,7 @@ export interface IQuestion extends Document {
   tags: string[];
   difficulty: 1 | 2 | 3 | 4 | 5;
   language: "en" | "ml" | "mixed";
-  questionStyle: "direct" | "concept" | "statement" | "negative" | "indirect";
+  questionStyle: QuestionStyle;
 
   pyq?: { exam: string; year: number; questionNumber: number };
   sourceType?: "pyq" | "pyq_variant" | "institute" | "internet";
@@ -85,8 +86,8 @@ const QuestionSchema = new Schema<IQuestion>(
     language: { type: String, enum: ["en", "ml", "mixed"], default: "en" },
     questionStyle: {
       type: String,
-      enum: ["direct", "concept", "statement", "negative", "indirect"],
-      default: "direct",
+      enum: [...QUESTION_STYLE_VALUES],
+      default: DEFAULT_QUESTION_STYLE,
     },
 
     pyq: {

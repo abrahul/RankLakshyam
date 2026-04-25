@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
 import Topic from "@/lib/db/models/Topic";
+import { DEFAULT_QUESTION_STYLE, QUESTION_STYLE_VALUES } from "@/lib/question-styles";
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
   const first = topic?.categoryId || topic?.categoryIds?.[0];
@@ -111,6 +112,20 @@ export async function POST(request: Request) {
       );
     }
 
+    if (questionStyle && !QUESTION_STYLE_VALUES.includes(questionStyle)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_INPUT",
+            message: `questionStyle must be one of: ${QUESTION_STYLE_VALUES.join(", ")}`,
+            statusCode: 400,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     await connectDB();
 
     // Derive category from topic (source of truth)
@@ -146,7 +161,7 @@ export async function POST(request: Request) {
       tags: tags || [],
       difficulty: difficulty || 2,
       language: language === "ml" || language === "mixed" ? language : "en",
-      questionStyle: questionStyle || "direct",
+      questionStyle: questionStyle || DEFAULT_QUESTION_STYLE,
       pyq: pyq || undefined,
       isVerified: true, // Admin-created = auto-verified
       createdBy: guard.userId,
