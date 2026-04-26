@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import QuestionBrowserModal from "@/components/admin/question-browser-modal";
 import ScopedQuestionImportModal from "@/components/admin/scoped-question-import-modal";
 
 type CategoryRow = {
@@ -20,6 +21,7 @@ type TopicRow = {
   dailyWeight?: number;
   sortOrder?: number;
   questionCount?: number;
+  subTopics?: Array<{ id: string; name: { en: string; ml?: string }; questionCount?: number }>;
 };
 
 function idFromName(input: string) {
@@ -155,6 +157,7 @@ export default function TopicsAdminPage() {
   const [editSortOrder, setEditSortOrder] = useState<number>(0);
   const [editCategoryIds, setEditCategoryIds] = useState<string[]>([]);
   const [importTopic, setImportTopic] = useState<TopicRow | null>(null);
+  const [browseTopic, setBrowseTopic] = useState<TopicRow | null>(null);
 
   const startEdit = (topic: TopicRow) => {
     setEditingId(topic.id);
@@ -366,6 +369,7 @@ export default function TopicsAdminPage() {
                           {topic.icon} {topic.name.en}
                         </p>
                         <p className="text-xs text-surface-200/40 truncate">ID: {topic.id}</p>
+                        <p className="text-xs text-surface-200/40 truncate">Questions: {topic.questionCount ?? 0}</p>
                         <p className="text-xs text-surface-200/40 truncate">
                           Categories: {(topic.categoryIds || (topic.categoryId ? [topic.categoryId] : []))
                             .map((categoryId) => sortedCategories.find((category) => category._id === categoryId)?.name.en || categoryId)
@@ -373,6 +377,13 @@ export default function TopicsAdminPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setBrowseTopic(topic)}
+                          className="text-xs text-sky-300/80 hover:text-sky-300 transition-colors"
+                        >
+                          Questions
+                        </button>
                         <button
                           type="button"
                           onClick={() => setImportTopic(topic)}
@@ -502,6 +513,12 @@ export default function TopicsAdminPage() {
         onClose={() => setImportTopic(null)}
         scopeLabel={importTopic ? `Topic: ${importTopic.name.en}` : ""}
         topicId={importTopic?.id || ""}
+      />
+      <QuestionBrowserModal
+        open={!!browseTopic}
+        onClose={() => setBrowseTopic(null)}
+        title={browseTopic ? `Topic: ${browseTopic.name.en}` : ""}
+        topicId={browseTopic?.id || ""}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import QuestionBrowserModal from "@/components/admin/question-browser-modal";
 import ScopedQuestionImportModal from "@/components/admin/scoped-question-import-modal";
 
 type TopicRow = {
@@ -16,6 +17,7 @@ type SubTopicRow = {
   name: { en: string; ml: string };
   topicId: string;
   sortOrder: number;
+  questionCount?: number;
 };
 
 export default function SubTopicsAdminPage() {
@@ -116,6 +118,7 @@ export default function SubTopicsAdminPage() {
   const [editMl, setEditMl] = useState("");
   const [editSort, setEditSort] = useState<number>(0);
   const [importSubtopic, setImportSubtopic] = useState<SubTopicRow | null>(null);
+  const [browseSubtopic, setBrowseSubtopic] = useState<SubTopicRow | null>(null);
 
   const startEdit = (st: SubTopicRow) => {
     setEditingId(st._id);
@@ -322,11 +325,21 @@ export default function SubTopicsAdminPage() {
                                 <p className="text-xs text-surface-200/40 truncate">
                                   Sort: {st.sortOrder ?? 0}
                                 </p>
+                                <p className="text-xs text-surface-200/40 truncate">
+                                  Questions: {st.questionCount ?? 0}
+                                </p>
                                 <p className="text-xs text-surface-200/30 break-all mt-1">
                                   ID: {st._id}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setBrowseSubtopic(st)}
+                                  className="text-xs text-sky-300/80 hover:text-sky-300 transition-colors"
+                                >
+                                  Questions
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => setImportSubtopic(st)}
@@ -378,6 +391,17 @@ export default function SubTopicsAdminPage() {
         }
         topicId={importSubtopic?.topicId || selectedTopicId}
         subtopicId={importSubtopic?._id}
+      />
+      <QuestionBrowserModal
+        open={!!browseSubtopic}
+        onClose={() => setBrowseSubtopic(null)}
+        title={
+          browseSubtopic && selectedTopic
+            ? `Subtopic: ${selectedTopic.name.en} / ${browseSubtopic.name.en}`
+            : ""
+        }
+        topicId={browseSubtopic?.topicId || selectedTopicId}
+        subtopicId={browseSubtopic?._id}
       />
     </div>
   );
