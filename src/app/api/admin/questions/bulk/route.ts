@@ -12,6 +12,14 @@ function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unkno
   return first ? new mongoose.Types.ObjectId(String(first)) : null;
 }
 
+function describeQuestion(index: number, question: { text?: { en?: string } }) {
+  const preview = String(question.text?.en || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+  return preview ? `Q${index + 1} (${preview})` : `Q${index + 1}`;
+}
+
 function resolveCategoryIdForQuestion(
   topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined,
   rawCategoryId: unknown
@@ -83,20 +91,36 @@ export async function POST(request: Request) {
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       try {
+        const questionLabel = describeQuestion(i, q);
         const effectiveTopicId =
           typeof q.topicId === "string" && q.topicId.trim()
             ? q.topicId.trim()
             : scopedTopic;
         const effectiveSubtopic = q.subtopicId || q.subTopic || scopedSubtopic;
         const resolvedAnswer = q.correctOption || q.answer;
-        if (!q.text?.en || !q.options || q.options.length !== 4 || !resolvedAnswer || !effectiveTopicId) {
-          results.errors.push(`Q${i + 1}: Missing required fields`);
+        if (!q.text?.en?.trim()) {
+          results.errors.push(`${questionLabel}: Missing text.en`);
+          results.skipped++;
+          continue;
+        }
+        if (!Array.isArray(q.options) || q.options.length !== 4) {
+          results.errors.push(`${questionLabel}: Exactly 4 options are required`);
+          results.skipped++;
+          continue;
+        }
+        if (!resolvedAnswer) {
+          results.errors.push(`${questionLabel}: Missing correctOption/answer`);
+          results.skipped++;
+          continue;
+        }
+        if (!effectiveTopicId) {
+          results.errors.push(`${questionLabel}: Missing topicId and no scoped topic was provided`);
           results.skipped++;
           continue;
         }
 
         if (q.questionStyle && !QUESTION_STYLE_VALUES.includes(q.questionStyle)) {
-          results.errors.push(`Q${i + 1}: questionStyle must be one of ${QUESTION_STYLE_VALUES.join(", ")}`);
+          results.errors.push(`${questionLabel}: questionStyle must be one of ${QUESTION_STYLE_VALUES.join(", ")}`);
           results.skipped++;
           continue;
         }
@@ -104,20 +128,26 @@ export async function POST(request: Request) {
         // Check for duplicate
         const existing = await Question.findOne({ "text.en": q.text.en });
         if (existing) {
+          results.errors.push(`${questionLabel}: Duplicate question text already exists`);
           results.skipped++;
           continue;
         }
 
         const topic = await Topic.findById(effectiveTopicId).select({ categoryId: 1, categoryIds: 1 }).lean();
+        if (!topic) {
+          results.errors.push(`${questionLabel}: Topic ${effectiveTopicId} was not found`);
+          results.skipped++;
+          continue;
+        }
         const primaryCategoryId = resolveCategoryIdForQuestion(topic, q.categoryId);
         if (!primaryCategoryId) {
-          results.errors.push(`Q${i + 1}: Invalid categoryId for topic ${effectiveTopicId}`);
+          results.errors.push(`${questionLabel}: Invalid categoryId for topic ${effectiveTopicId}`);
           results.skipped++;
           continue;
         }
         const resolvedSubtopicId = await resolveSubtopicId(effectiveSubtopic, effectiveTopicId);
         if (effectiveSubtopic && resolvedSubtopicId === null) {
-          results.errors.push(`Q${i + 1}: Invalid subtopic for topic ${effectiveTopicId}`);
+          results.errors.push(`${questionLabel}: Invalid subtopic for topic ${effectiveTopicId}`);
           results.skipped++;
           continue;
         }
@@ -150,7 +180,8 @@ export async function POST(request: Request) {
         });
         results.created++;
       } catch (err) {
-        results.errors.push(`Q${i + 1}: ${err instanceof Error ? err.message : "Unknown error"}`);
+        const questionLabel = describeQuestion(i, q);
+        results.errors.push(`${questionLabel}: ${err instanceof Error ? err.message : "Unknown error"}`);
         results.skipped++;
       }
     }
