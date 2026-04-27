@@ -8,10 +8,16 @@ const authDbSyncTimeoutRaw = Number(process.env.AUTH_DB_SYNC_TIMEOUT_MS);
 const AUTH_DB_SYNC_TIMEOUT_MS =
   Number.isFinite(authDbSyncTimeoutRaw) && authDbSyncTimeoutRaw > 0
     ? authDbSyncTimeoutRaw
-    : 1200;
+    : 2500;
 const AUTH_DB_SYNC_DISABLED = ["0", "false", "off"].includes(
   String(process.env.AUTH_DB_SYNC ?? "").toLowerCase()
 );
+const AUTH_DB_SYNC_PROJECTION = {
+  _id: 1,
+  role: 1,
+  onboarded: 1,
+  targetExam: 1,
+} as const;
 
 let authDbSyncDisabledUntil = 0;
 let authDbSyncFailureCount = 0;
@@ -105,63 +111,54 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // Sync user from DB periodically so role/onboarding changes take effect for existing sessions.
       if (email && (!hasValidDbUserId || shouldRefreshFromDb)) {
-         if (AUTH_DB_SYNC_DISABLED) return token;
-         if (Date.now() < authDbSyncDisabledUntil) return token;
+        if (AUTH_DB_SYNC_DISABLED) return token;
+        if (Date.now() < authDbSyncDisabledUntil) return token;
 
-         try {
-           const deadline = Date.now() + AUTH_DB_SYNC_TIMEOUT_MS;
-           const remaining = () => Math.max(1, deadline - Date.now());
+        try {
+          await withTimeout(connectDB(), AUTH_DB_SYNC_TIMEOUT_MS, "connectDB");
 
-           await withTimeout(connectDB(), remaining(), "connectDB");
-           let dbUser = await withTimeout(User.findOne({ email }).lean(), remaining(), "User.findOne");
+          const dbUser = await withTimeout(
+            User.findOneAndUpdate(
+              { email },
+              {
+                $setOnInsert: {
+                  name: String(name ?? "User"),
+                  email,
+                  image: String(image ?? ""),
+                  role: "user",
+                  onboarded: false,
+                },
+              },
+              {
+                upsert: true,
+                new: true,
+                lean: true,
+                projection: AUTH_DB_SYNC_PROJECTION,
+                maxTimeMS: AUTH_DB_SYNC_TIMEOUT_MS,
+              }
+            ),
+            AUTH_DB_SYNC_TIMEOUT_MS,
+            "User.findOneAndUpdate"
+          );
 
-           // Create if missing. Handle race condition where another request creates it first.
-           if (!dbUser) {
-             try {
-               const created = await withTimeout(
-                 User.create({
-                   name: String(name ?? "User"),
-                   email,
-                   image: String(image ?? ""),
-                   role: "user",
-                   onboarded: false,
-                 }),
-                 remaining(),
-                 "User.create"
-               );
-               dbUser = created.toObject();
-             } catch (err) {
-               const error = err as { code?: number };
-               if (error?.code === 11000) {
-                 dbUser = await withTimeout(
-                   User.findOne({ email }).lean(),
-                   remaining(),
-                   "User.findOne(dup)"
-                 );
-               } else {
-                 throw err;
-               }
-             }
-           }
+          if (!dbUser) throw new Error("User lookup failed after upsert.");
 
-           if (!dbUser) throw new Error("User lookup failed after upsert.");
-
-           token.userId = String(dbUser._id);
-           token.role = dbUser.role ?? token.role;
-           token.onboarded =
-             typeof dbUser.onboarded === "boolean" ? dbUser.onboarded : token.onboarded;
-           token.targetExam = dbUser.targetExam ?? token.targetExam;
-           token.dbSyncedAt = Date.now();
-           markAuthDbSyncSuccess();
-         } catch (error) {
-           markAuthDbSyncFailure(error);
-           // Don't poison the token with a non-ObjectId id; allow retry on next request.
-           if (typeof token.userId !== "string" || !mongoose.isValidObjectId(token.userId)) {
-             delete token.userId;
-           }
-           token.dbSyncedAt = Date.now();
-         }
-       }
+          token.userId = String(dbUser._id);
+          token.role = dbUser.role ?? token.role;
+          token.onboarded =
+            typeof dbUser.onboarded === "boolean" ? dbUser.onboarded : token.onboarded;
+          token.targetExam = dbUser.targetExam ?? token.targetExam;
+          token.dbSyncedAt = Date.now();
+          markAuthDbSyncSuccess();
+        } catch (error) {
+          markAuthDbSyncFailure(error);
+          // Don't poison the token with a non-ObjectId id; allow retry on next request.
+          if (typeof token.userId !== "string" || !mongoose.isValidObjectId(token.userId)) {
+            delete token.userId;
+          }
+          token.dbSyncedAt = Date.now();
+        }
+      }
 
       return token;
     },
