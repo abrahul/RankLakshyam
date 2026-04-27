@@ -27,12 +27,11 @@ const TopicSchema = new Schema<ITopic>({
   questionCount: { type: Number, default: 0 },
 });
 
-TopicSchema.pre("save", function syncPrimaryCategory(next) {
+TopicSchema.pre("save", function syncPrimaryCategory() {
   if ((!this.categoryIds || this.categoryIds.length === 0) && this.categoryId) {
     this.categoryIds = [this.categoryId];
   }
   this.categoryId = this.categoryIds?.[0];
-  next();
 });
 
 TopicSchema.index({ categoryId: 1 });
@@ -41,7 +40,8 @@ TopicSchema.index({ categoryIds: 1 });
 const existingModel = mongoose.models.Topic as Model<ITopic> | undefined;
 const hasCategoryIdsPath = existingModel?.schema.path("categoryIds");
 
-if (existingModel && !hasCategoryIdsPath) {
+// In dev, schema middleware can stay stale across HMR unless the model is recreated.
+if (existingModel && (process.env.NODE_ENV !== "production" || !hasCategoryIdsPath)) {
   delete mongoose.models.Topic;
 }
 
