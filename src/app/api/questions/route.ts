@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
-import Exam from "@/lib/db/models/Exam";
 import Question from "@/lib/db/models/Question";
 
 function normalizeTopicParam(value: string) {
@@ -11,6 +10,36 @@ function normalizeTopicParam(value: string) {
   } catch {
     return value;
   }
+}
+
+type PopulatedExamTag = {
+  _id?: unknown;
+  name?: string;
+  code?: string | null;
+};
+
+type QuestionPayload = Record<string, unknown> & {
+  exam?: string;
+  examCode?: string;
+  examTags?: Array<string | PopulatedExamTag>;
+};
+
+function formatExamTag(tag: string | PopulatedExamTag) {
+  if (typeof tag === "string") return "";
+  const name = typeof tag.name === "string" ? tag.name.trim() : "";
+  const code = typeof tag.code === "string" ? tag.code.trim() : "";
+  if (!name) return "";
+  return code ? `${name} (${code})` : name;
+}
+
+function examAskedIn(question: QuestionPayload) {
+  const tagLabels = (Array.isArray(question.examTags) ? question.examTags.map(formatExamTag) : []).filter(Boolean);
+  if (tagLabels.length) return Array.from(new Set(tagLabels));
+
+  const exam = typeof question.exam === "string" ? question.exam.trim() : "";
+  const code = typeof question.examCode === "string" ? question.examCode.trim() : "";
+  if (exam && code) return [`${exam} (${code})`];
+  return [exam || code].filter(Boolean);
 }
 
 export async function GET(request: Request) {
@@ -24,19 +53,31 @@ export async function GET(request: Request) {
     const categoryId = searchParams.get("categoryId");
     const topicIdParam = searchParams.get("topicId") || searchParams.get("topic");
     const subtopicId = searchParams.get("subtopicId") || searchParams.get("subTopic");
-    const examId = searchParams.get("examId");
-    const exam = searchParams.get("exam");
     const difficulty = searchParams.get("difficulty");
     const language = searchParams.get("language");
-    const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
+    const rawCountParam = searchParams.get("count") || searchParams.get("limit");
+    const rawCount = rawCountParam || "20";
+    const wantsAll =
+      searchParams.get("all") === "1" ||
+      searchParams.get("all") === "true" ||
+      rawCount.toLowerCase() === "all";
+    const rawLimit = parseInt(rawCount, 10);
     const rawPage = parseInt(searchParams.get("page") || "1", 10);
-    const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 20;
+    const maxPageLimit = 500;
+    const maxRequestedLimit = 5000;
+    const requestedLimit = Number.isFinite(rawLimit) ? rawLimit : 20;
+    const limit = wantsAll
+      ? Math.max(1, Math.min(maxPageLimit, rawCountParam && Number.isFinite(rawLimit) ? rawLimit : maxPageLimit))
+      : Math.max(1, Math.min(maxRequestedLimit, requestedLimit));
+    const capped = !wantsAll && requestedLimit > maxRequestedLimit;
     const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
 
     await connectDB();
 
-    const filter: Record<string, unknown> = { isVerified: true };
-    const andFilters: Array<Record<string, unknown>> = [];
+    const filter: Record<string, unknown> = {
+      isVerified: true,
+      sourceType: { $nin: ["pyq", "pyq_variant"] },
+    };
     if (categoryId) {
       if (!mongoose.isValidObjectId(categoryId)) {
         return NextResponse.json(
@@ -57,33 +98,6 @@ export async function GET(request: Request) {
       }
       filter.subtopicId = new mongoose.Types.ObjectId(subtopicId);
     }
-    if (examId) {
-      if (!mongoose.isValidObjectId(examId)) {
-        return NextResponse.json(
-          { success: false, error: { code: "INVALID_INPUT", message: "Invalid examId", statusCode: 400 } },
-          { status: 400 }
-        );
-      }
-      filter.examTags = new mongoose.Types.ObjectId(examId);
-    } else if (exam && exam.length <= 128) {
-      const examDoc = await Exam.findOne({
-        $or: [{ name: exam }, { code: exam }],
-      })
-        .select({ _id: 1, name: 1, code: 1 })
-        .lean();
-
-      if (examDoc?._id) {
-        andFilters.push({
-          $or: [
-          { examTags: examDoc._id },
-          { exam: String(examDoc.name || "") },
-          ...(examDoc.code ? [{ examCode: String(examDoc.code) }] : []),
-          ],
-        });
-      } else {
-        andFilters.push({ $or: [{ exam }, { examCode: exam }] });
-      }
-    }
     if (difficulty) {
       const d = parseInt(difficulty, 10);
       if (Number.isFinite(d) && d >= 1 && d <= 5) filter.difficulty = d;
@@ -91,23 +105,26 @@ export async function GET(request: Request) {
     if (language && (language === "en" || language === "ml" || language === "mixed")) {
       filter.language = language;
     }
-    if (andFilters.length) {
-      filter.$and = andFilters;
-    }
 
     const skip = (page - 1) * limit;
-    const [questions, total] = await Promise.all([
+    const [rawQuestions, total] = await Promise.all([
       Question.find(filter, { answer: 0, explanation: 0, optionWhy: 0 })
+        .populate("examTags", "name code")
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 }),
+        .sort({ createdAt: -1 })
+        .lean(),
       Question.countDocuments(filter),
     ]);
+    const questions = (rawQuestions as unknown as QuestionPayload[]).map((question) => ({
+      ...question,
+      examAskedIn: examAskedIn(question),
+    }));
 
     return NextResponse.json({
       success: true,
       data: questions,
-      meta: { page, limit, total },
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit), requestedAll: wantsAll, capped },
     });
   } catch (error) {
     console.error("Questions error:", error);

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { href: "/", icon: "🏠", label: "Home", activeIcon: "🏠" },
   { href: "/practice", icon: "📝", label: "Practice", activeIcon: "📝" },
+  { href: "/pyq", icon: "📋", label: "PYQ", activeIcon: "📋" },
   { href: "/performance", icon: "📊", label: "Stats", activeIcon: "📊" },
   { href: "/leaderboard", icon: "🏆", label: "Rank", activeIcon: "🏆" },
   { href: "/profile", icon: "👤", label: "Profile", activeIcon: "👤" },
@@ -36,7 +37,7 @@ export default function BottomNav() {
               key={item.href}
               href={item.href}
               id={`nav-${item.label.toLowerCase()}`}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all ${
                 isActive
                   ? "text-primary-400"
                   : "text-surface-200/50 hover:text-surface-200/80"

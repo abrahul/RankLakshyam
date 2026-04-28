@@ -78,6 +78,13 @@ type ExamEntry = {
   categoryName?: string;
 };
 
+type PaperEntry = {
+  exam: string;
+  year?: number;
+  categoryId?: string;
+  count: number;
+};
+
 export default function PyqPracticeClient({
   categoryId: categoryIdProp,
   exam,
@@ -93,6 +100,7 @@ export default function PyqPracticeClient({
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(categoryIdProp || "all");
   const [categoryExams, setCategoryExams] = useState<ExamEntry[]>([]);
+  const [papers, setPapers] = useState<PaperEntry[]>([]);
   const [examQuery, setExamQuery] = useState<string>(exam);
   const [examOpen, setExamOpen] = useState(false);
   const blurCloseTimer = useRef<number | null>(null);
@@ -144,6 +152,35 @@ export default function PyqPracticeClient({
     void fetchExams();
   }, [categoryFilter]);
 
+  useEffect(() => {
+    async function fetchPapers() {
+      try {
+        const url = new URL("/api/pyq", window.location.origin);
+        url.searchParams.set("mode", "papers");
+        url.searchParams.set("all", "1");
+        if (categoryFilter !== "all") url.searchParams.set("categoryId", categoryFilter);
+        const res = await fetch(url.toString());
+        const data = await res.json();
+        if (!data.success) {
+          setPapers([]);
+          return;
+        }
+        setPapers(
+          (Array.isArray(data.data) ? data.data : []).map((paper: PaperEntry) => ({
+            exam: paper.exam,
+            year: paper.year,
+            categoryId: paper.categoryId ? String(paper.categoryId) : undefined,
+            count: paper.count || 0,
+          }))
+        );
+      } catch {
+        setPapers([]);
+      }
+    }
+
+    void fetchPapers();
+  }, [categoryFilter]);
+
   const categoryButtons = useMemo(
     () => [
       { id: "all" as const, label: "All" },
@@ -168,7 +205,15 @@ export default function PyqPracticeClient({
     if (picked.categoryId && picked.categoryId !== "all") search.set("categoryId", picked.categoryId);
     search.set("exam", picked.exam);
     if (year) search.set("year", year);
-    router.push(`/practice/pyq?${search.toString()}`);
+    router.push(`/pyq?${search.toString()}`);
+  };
+
+  const pickPaper = (paper: PaperEntry) => {
+    const search = new URLSearchParams();
+    if (paper.categoryId && paper.categoryId !== "all") search.set("categoryId", paper.categoryId);
+    search.set("exam", paper.exam);
+    if (paper.year) search.set("year", String(paper.year));
+    router.push(`/pyq?${search.toString()}`);
   };
 
   const [questions, setQuestions] = useState<QuestionData[]>([]);
@@ -206,7 +251,7 @@ export default function PyqPracticeClient({
       try {
         const url = new URL("/api/pyq", window.location.origin);
         url.searchParams.set("exam", exam);
-        url.searchParams.set("limit", "20");
+        url.searchParams.set("all", "1");
         if (categoryIdProp) url.searchParams.set("categoryId", categoryIdProp);
         if (year) url.searchParams.set("year", year);
 
@@ -236,7 +281,7 @@ export default function PyqPracticeClient({
             questionIds: loadedQuestions.map((question) => question._id),
             context: {
               categoryId: categoryIdProp || undefined,
-              exam,
+              pyqExam: exam,
               ...(year ? { pyqYear: parseInt(year, 10) } : {}),
             },
           }),
@@ -325,7 +370,7 @@ export default function PyqPracticeClient({
         <div className="flex items-center justify-between mb-6">
           <button
             type="button"
-            onClick={() => router.push("/practice")}
+            onClick={() => router.push("/pyq")}
             className="text-surface-200/60 hover:text-surface-200 transition-colors"
           >
             ← Back
@@ -411,17 +456,33 @@ export default function PyqPracticeClient({
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            {categoryExams.slice(0, 6).map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => pickExam({ categoryId: categoryFilter !== "all" ? categoryFilter : entry.categoryId, exam: entry.exam })}
-                className="glass-card-light p-3 text-left hover:border-white/20 transition-all"
-              >
-                <p className="text-sm font-semibold text-white line-clamp-2">{entry.exam}</p>
-                <p className="text-xs text-surface-200/40 mt-1">{entry.code}</p>
-              </button>
-            ))}
+            {papers.length
+              ? papers.map((paper) => (
+                  <button
+                    key={`${paper.exam}-${paper.year || "paper"}`}
+                    type="button"
+                    onClick={() => pickPaper(paper)}
+                    className="glass-card-light p-3 text-left hover:border-white/20 transition-all"
+                  >
+                    <p className="text-sm font-semibold text-white line-clamp-2">{paper.exam}</p>
+                    <p className="text-xs text-surface-200/40 mt-1">
+                      {paper.year || "Paper"} - {paper.count} q
+                    </p>
+                  </button>
+                ))
+              : categoryExams.slice(0, 6).map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() =>
+                      pickExam({ categoryId: categoryFilter !== "all" ? categoryFilter : entry.categoryId, exam: entry.exam })
+                    }
+                    className="glass-card-light p-3 text-left hover:border-white/20 transition-all"
+                  >
+                    <p className="text-sm font-semibold text-white line-clamp-2">{entry.exam}</p>
+                    <p className="text-xs text-surface-200/40 mt-1">{entry.code}</p>
+                  </button>
+                ))}
           </div>
         </div>
       </div>
@@ -443,8 +504,8 @@ export default function PyqPracticeClient({
         <span className="text-4xl mb-4">😕</span>
         <h2 className="text-xl font-bold text-white mb-2">{examLabel} PYQ</h2>
         <p className="text-surface-200/60 mb-6">{error}</p>
-        <Link href="/practice" className="px-6 py-3 rounded-xl gradient-primary text-white font-semibold">
-          Back to Practice
+        <Link href="/pyq" className="px-6 py-3 rounded-xl gradient-primary text-white font-semibold">
+          Back to PYQ
         </Link>
       </div>
     );
@@ -457,7 +518,7 @@ export default function PyqPracticeClient({
         <div className="flex items-center justify-between mb-6">
           <button
             type="button"
-            onClick={() => router.push("/practice")}
+            onClick={() => router.push("/pyq")}
             className="text-surface-200/60 hover:text-surface-200 transition-colors"
           >
             ← Back
@@ -479,8 +540,8 @@ export default function PyqPracticeClient({
             </div>
           )}
 
-          <Link href="/practice" className="inline-flex px-6 py-3 rounded-xl gradient-primary text-white font-semibold">
-            Practice More
+          <Link href="/pyq" className="inline-flex px-6 py-3 rounded-xl gradient-primary text-white font-semibold">
+            More PYQ
           </Link>
         </div>
 
@@ -504,10 +565,10 @@ export default function PyqPracticeClient({
         <p className="text-surface-200/60 mb-6">No question found.</p>
         <button
           type="button"
-          onClick={() => router.push("/practice")}
+          onClick={() => router.push("/pyq")}
           className="px-6 py-3 rounded-xl gradient-primary text-white font-semibold"
         >
-          Back to Practice
+          Back to PYQ
         </button>
       </div>
     );
@@ -521,7 +582,7 @@ export default function PyqPracticeClient({
       <div className="flex items-center justify-between mb-4">
         <button
           type="button"
-          onClick={() => router.push("/practice")}
+          onClick={() => router.push("/pyq")}
           className="text-surface-200/60 hover:text-surface-200 transition-colors"
         >
           ← Back

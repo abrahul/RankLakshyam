@@ -52,6 +52,7 @@ export async function POST(request: Request) {
     const attemptByQuestionId = new Map<string, (typeof attempts)[number]>(
       attempts.map((a) => [String(a.questionId), a])
     );
+    const skippedIds = new Set((testSession.skippedQuestionIds || []).map((id) => String(id)));
 
     const missingIds = testSession.questionIds.filter((qid) => !attemptByQuestionId.has(String(qid)));
     const missingCorrect = missingIds.length
@@ -70,23 +71,27 @@ export async function POST(request: Request) {
           correctOption: attempt.correctOption,
           isCorrect: !!attempt.isCorrect,
           timeTakenSec: attempt.timeTakenSec ?? 0,
+          status: "answered" as const,
         };
       }
       const correctOption = correctById.get(String(qid)) || "A";
+      const skipped = skippedIds.has(String(qid));
       return {
         questionId: qid,
         selectedOption: null,
         correctOption: correctOption as "A" | "B" | "C" | "D",
         isCorrect: false,
         timeTakenSec: 0,
+        status: skipped ? ("skipped" as const) : ("unattempted" as const),
       };
     });
 
     const correctCount = questions.filter((q) => q.isCorrect).length;
     const attemptedCount = questions.filter((q) => q.selectedOption).length;
+    const skippedCount = questions.filter((q) => q.status === "skipped").length;
     const unattemptedCount = testSession.totalQuestions - attemptedCount;
     const wrongCount = attemptedCount - correctCount;
-    const accuracy = testSession.totalQuestions ? round((correctCount / testSession.totalQuestions) * 100) : 0;
+    const accuracy = attemptedCount ? round((correctCount / attemptedCount) * 100) : 0;
 
     if (testSession.status !== "completed" && forceComplete) {
       await TestSession.updateOne(
@@ -95,7 +100,7 @@ export async function POST(request: Request) {
           $set: {
             status: "completed",
             completedAt: new Date(),
-            currentIndex: attemptedCount,
+            currentIndex: attemptedCount + skippedCount,
             correctCount,
             accuracy,
             totalTimeSec: testSession.totalTimeSec || 0,
@@ -114,6 +119,7 @@ export async function POST(request: Request) {
       correctCount,
       wrongCount,
       unattemptedCount,
+      skippedCount,
       score: correctCount,
       accuracy,
       startedAt: testSession.startedAt,

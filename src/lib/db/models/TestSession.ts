@@ -17,6 +17,7 @@ export interface ITestSession extends Document {
   totalTimeSec: number;
   avgTimeSec: number;
   xpEarned: number;
+  skippedQuestionIds: mongoose.Types.ObjectId[];
   status: "in_progress" | "completed" | "abandoned";
   currentIndex: number;
   startedAt: Date;
@@ -43,6 +44,7 @@ const TestSessionSchema = new Schema<ITestSession>({
   totalTimeSec: { type: Number, default: 0 },
   avgTimeSec: { type: Number, default: 0 },
   xpEarned: { type: Number, default: 0 },
+  skippedQuestionIds: [{ type: Schema.Types.ObjectId, ref: "Question" }],
   status: {
     type: String,
     enum: ["in_progress", "completed", "abandoned"],

@@ -160,7 +160,7 @@ export default function DashboardPage() {
         <Link href="/practice" id="quick-topic-practice">
           <ActionCard icon="📖" label="Topic Practice" subtitle="Choose a subject" color="#6366f1" />
         </Link>
-        <Link href="/practice/pyq" id="quick-pyq">
+        <Link href="/pyq" id="quick-pyq">
           <ActionCard icon="📋" label="Previous Year" subtitle="Real exam papers" color="#f97316" />
         </Link>
       </div>

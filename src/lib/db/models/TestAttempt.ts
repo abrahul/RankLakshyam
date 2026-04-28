@@ -8,6 +8,7 @@ export interface ITestAttemptQuestion {
   correctOption: "A" | "B" | "C" | "D";
   isCorrect: boolean;
   timeTakenSec: number;
+  status: "answered" | "skipped" | "unattempted";
 }
 
 export interface ITestAttempt extends Document {
@@ -20,6 +21,7 @@ export interface ITestAttempt extends Document {
   correctCount: number;
   wrongCount: number;
   unattemptedCount: number;
+  skippedCount: number;
   score: number;
   accuracy: number;
   startedAt: Date;
@@ -35,6 +37,7 @@ const TestAttemptQuestionSchema = new Schema<ITestAttemptQuestion>(
     correctOption: { type: String, enum: ["A", "B", "C", "D"], required: true },
     isCorrect: { type: Boolean, required: true },
     timeTakenSec: { type: Number, default: 0 },
+    status: { type: String, enum: ["answered", "skipped", "unattempted"], default: "answered" },
   },
   { _id: false }
 );
@@ -49,6 +52,7 @@ const TestAttemptSchema = new Schema<ITestAttempt>(
     correctCount: { type: Number, default: 0 },
     wrongCount: { type: Number, default: 0 },
     unattemptedCount: { type: Number, default: 0 },
+    skippedCount: { type: Number, default: 0 },
     score: { type: Number, default: 0 },
     accuracy: { type: Number, default: 0 },
     startedAt: { type: Date, required: true },
@@ -66,4 +70,3 @@ const TestAttempt: Model<ITestAttempt> =
   mongoose.model<ITestAttempt>("TestAttempt", TestAttemptSchema);
 
 export default TestAttempt;
-

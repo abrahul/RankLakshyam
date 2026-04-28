@@ -16,6 +16,41 @@ import { calculateXP, getTodayIST, round } from "@/lib/utils/scoring";
 import { checkNewBadges, getStreakMilestone, getRank, getNextRank, getBadgeDef } from "@/lib/utils/gamification";
 import mongoose from "mongoose";
 
+type ProgressPayload = {
+  current: number;
+  total: number;
+  correctCount: number;
+  wrongCount: number;
+  skippedCount: number;
+  attemptedCount: number;
+};
+
+function toIdSet(ids: unknown[] = []) {
+  return new Set(ids.map((id) => String(id)));
+}
+
+function buildProgress({
+  current,
+  total,
+  correctCount,
+  skippedCount,
+}: {
+  current: number;
+  total: number;
+  correctCount: number;
+  skippedCount: number;
+}): ProgressPayload {
+  const attemptedCount = Math.max(0, current - skippedCount);
+  return {
+    current,
+    total,
+    correctCount,
+    wrongCount: Math.max(0, attemptedCount - correctCount),
+    skippedCount,
+    attemptedCount,
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -25,10 +60,11 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { sessionId, questionId, selectedOption, timeTakenSec } = body;
+    const isSkip = body?.action === "skip" || body?.status === "skipped" || selectedOption === null;
 
-    if (!sessionId || !questionId || !selectedOption || timeTakenSec === undefined) {
+    if (!sessionId || !questionId || (!isSkip && !selectedOption) || timeTakenSec === undefined) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "sessionId, questionId, selectedOption, and timeTakenSec are required", statusCode: 400 } },
+        { success: false, error: { code: "INVALID_INPUT", message: "sessionId, questionId, selectedOption/action, and timeTakenSec are required", statusCode: 400 } },
         { status: 400 }
       );
     }
@@ -40,7 +76,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!["A", "B", "C", "D"].includes(String(selectedOption))) {
+    if (!isSkip && !["A", "B", "C", "D"].includes(String(selectedOption))) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_INPUT", message: "selectedOption must be A, B, C, or D", statusCode: 400 } },
         { status: 400 }
@@ -72,6 +108,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const questionObjectId = new mongoose.Types.ObjectId(questionId);
+    const sessionQuestionIds = new Set(testSession.questionIds.map((id: unknown) => String(id)));
+    if (!sessionQuestionIds.has(String(questionObjectId))) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_QUESTION", message: "Question is not part of this session", statusCode: 400 } },
+        { status: 400 }
+      );
+    }
+
     // Check if already answered this question in this session
     const existingAttempt = await Attempt.findOne({ sessionId, questionId, userId: session.user.id });
     if (existingAttempt) {
@@ -79,6 +124,44 @@ export async function POST(request: Request) {
         { success: false, error: { code: "ALREADY_ANSWERED", message: "Question already answered", statusCode: 409 } },
         { status: 409 }
       );
+    }
+
+    if (isSkip) {
+      const skippedIds = toIdSet(testSession.skippedQuestionIds || []);
+      const wasSkipped = skippedIds.has(String(questionObjectId));
+      skippedIds.add(String(questionObjectId));
+
+      const attemptedCount = await Attempt.countDocuments({ sessionId, userId: session.user.id });
+      const skippedCount = skippedIds.size;
+      const newIndex = attemptedCount + skippedCount;
+      const newTotalTime = testSession.totalTimeSec + (wasSkipped ? 0 : timeTakenSec);
+      const isComplete = newIndex >= testSession.totalQuestions;
+
+      const sessionUpdate: Record<string, unknown> = {
+        skippedQuestionIds: Array.from(skippedIds).map((id) => new mongoose.Types.ObjectId(id)),
+        currentIndex: newIndex,
+        totalTimeSec: newTotalTime,
+        avgTimeSec: newIndex ? round(newTotalTime / newIndex) : 0,
+      };
+
+      await TestSession.updateOne({ _id: sessionId }, { $set: sessionUpdate });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          skipped: true,
+          isCorrect: false,
+          correctOption: "",
+          explanation: { en: "", ml: "" },
+          isComplete,
+          progress: buildProgress({
+            current: newIndex,
+            total: testSession.totalQuestions,
+            correctCount: testSession.correctCount,
+            skippedCount,
+          }),
+        },
+      });
     }
 
     // Get correct answer
@@ -90,14 +173,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const isCorrect = selectedOption === question.answer;
+    const skippedIds = toIdSet(testSession.skippedQuestionIds || []);
+    const wasSkipped = skippedIds.delete(String(questionObjectId));
+    const skippedCount = skippedIds.size;
+    const normalizedSelectedOption = String(selectedOption) as "A" | "B" | "C" | "D";
+    const isCorrect = normalizedSelectedOption === question.answer;
 
     // Write attempt
     const attemptPromise = Attempt.create({
       userId: session.user.id,
       sessionId,
       questionId,
-      selectedOption,
+      selectedOption: normalizedSelectedOption,
       correctOption: question.answer,
       isCorrect,
       timeTakenSec,
@@ -107,22 +194,24 @@ export async function POST(request: Request) {
     });
 
     // Update session progress
-    const newIndex = testSession.currentIndex + 1;
+    const newIndex = testSession.currentIndex + (wasSkipped ? 0 : 1);
     const newCorrectCount = testSession.correctCount + (isCorrect ? 1 : 0);
     const newTotalTime = testSession.totalTimeSec + timeTakenSec;
-    const isLastQuestion = newIndex >= testSession.totalQuestions;
+    const isLastQuestion = newIndex >= testSession.totalQuestions && skippedCount === 0;
+    const attemptedCount = Math.max(0, newIndex - skippedCount);
 
     const sessionUpdate: Record<string, unknown> = {
       currentIndex: newIndex,
       correctCount: newCorrectCount,
       totalTimeSec: newTotalTime,
       avgTimeSec: round(newTotalTime / newIndex),
+      skippedQuestionIds: Array.from(skippedIds).map((id) => new mongoose.Types.ObjectId(id)),
     };
 
     if (isLastQuestion) {
       sessionUpdate.status = "completed";
       sessionUpdate.completedAt = new Date();
-      sessionUpdate.accuracy = round((newCorrectCount / testSession.totalQuestions) * 100);
+      sessionUpdate.accuracy = attemptedCount ? round((newCorrectCount / attemptedCount) * 100) : 0;
     }
 
     const sessionUpdatePromise = TestSession.updateOne({ _id: sessionId }, { $set: sessionUpdate });
@@ -234,8 +323,8 @@ export async function POST(request: Request) {
 
       xpResult = calculateXP({
         correctCount: newCorrectCount,
-        totalQuestions: testSession.totalQuestions,
-        avgTimeSec: round(newTotalTime / testSession.totalQuestions),
+        totalQuestions: Math.max(1, attemptedCount),
+        avgTimeSec: attemptedCount ? round(newTotalTime / attemptedCount) : 0,
         currentStreak: newStreak,
         sessionType: testSession.type,
       });
@@ -258,7 +347,7 @@ export async function POST(request: Request) {
         { _id: session.user.id },
         {
           $inc: {
-            "stats.totalAttempted": testSession.totalQuestions,
+            "stats.totalAttempted": attemptedCount,
             "stats.totalCorrect": newCorrectCount,
             "stats.totalXP": xpResult.totalXP,
           },
@@ -283,11 +372,11 @@ export async function POST(request: Request) {
         );
 
         const newBadges = checkNewBadges({
-          totalAttempted: (user.stats?.totalAttempted ?? 0) + testSession.totalQuestions,
+          totalAttempted: (user.stats?.totalAttempted ?? 0) + attemptedCount,
           totalCorrect: (user.stats?.totalCorrect ?? 0) + newCorrectCount,
           currentStreak: newStreak,
           todayScore: testSession.type === "daily" ? newCorrectCount : undefined,
-          avgTimeSec: round(newTotalTime / testSession.totalQuestions),
+          avgTimeSec: attemptedCount ? round(newTotalTime / attemptedCount) : 0,
           topicAccuracy: user.stats?.topicAccuracy ?? new Map(),
           completionHour,
           existingBadges: (user.badges || []).map((b: { id: string }) => b.id),
@@ -337,7 +426,7 @@ export async function POST(request: Request) {
       try {
         const fullSession = await TestSession.findById(
           sessionId,
-          { questionIds: 1, totalQuestions: 1, startedAt: 1, completedAt: 1, totalTimeSec: 1 }
+          { questionIds: 1, totalQuestions: 1, skippedQuestionIds: 1, startedAt: 1, completedAt: 1, totalTimeSec: 1 }
         ).lean();
 
         if (fullSession) {
@@ -345,6 +434,7 @@ export async function POST(request: Request) {
           const attemptByQuestionId = new Map<string, (typeof attempts)[number]>(
             attempts.map((a) => [String(a.questionId), a])
           );
+          const fullSkippedIds = new Set((fullSession.skippedQuestionIds || []).map((id) => String(id)));
 
           const missingIds = fullSession.questionIds.filter(
             (qid) => !attemptByQuestionId.has(String(qid))
@@ -365,26 +455,28 @@ export async function POST(request: Request) {
                 correctOption: attempt.correctOption,
                 isCorrect: !!attempt.isCorrect,
                 timeTakenSec: attempt.timeTakenSec ?? 0,
+                status: "answered" as const,
               };
             }
 
             const correctOption = correctById.get(String(qid)) || "A";
+            const skipped = fullSkippedIds.has(String(qid));
             return {
               questionId: qid,
               selectedOption: null,
               correctOption: correctOption as "A" | "B" | "C" | "D",
               isCorrect: false,
               timeTakenSec: 0,
+              status: skipped ? ("skipped" as const) : ("unattempted" as const),
             };
           });
 
           const correctCount = questions.filter((q) => q.isCorrect).length;
           const attemptedCount = questions.filter((q) => q.selectedOption).length;
+          const skippedCount = questions.filter((q) => q.status === "skipped").length;
           const unattemptedCount = fullSession.totalQuestions - attemptedCount;
           const wrongCount = attemptedCount - correctCount;
-          const accuracy = fullSession.totalQuestions
-            ? round((correctCount / fullSession.totalQuestions) * 100)
-            : 0;
+          const accuracy = attemptedCount ? round((correctCount / attemptedCount) * 100) : 0;
 
           await TestAttempt.updateOne(
             { testSessionId: sessionId },
@@ -398,6 +490,7 @@ export async function POST(request: Request) {
                 correctCount,
                 wrongCount,
                 unattemptedCount,
+                skippedCount,
                 score: correctCount,
                 accuracy,
                 startedAt: fullSession.startedAt,
@@ -420,7 +513,12 @@ export async function POST(request: Request) {
         correctOption: question.answer,
         explanation: question.explanation,
         isComplete: isLastQuestion,
-        progress: { current: newIndex, total: testSession.totalQuestions, correctCount: newCorrectCount },
+        progress: buildProgress({
+          current: newIndex,
+          total: testSession.totalQuestions,
+          correctCount: newCorrectCount,
+          skippedCount,
+        }),
         ...(isLastQuestion && { xp: xpResult, streak: streakData, gamification: gamificationEvents }),
       },
     });

@@ -47,6 +47,7 @@ export async function GET(request: Request) {
         correctCount: t.correctCount,
         wrongCount: t.wrongCount,
         unattemptedCount: t.unattemptedCount,
+        skippedCount: t.skippedCount ?? t.unattemptedCount,
         score: t.score,
         accuracy: t.accuracy,
         durationSec: t.durationSec,
@@ -68,4 +69,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

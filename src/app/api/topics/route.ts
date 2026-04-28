@@ -34,7 +34,10 @@ export async function GET(request: Request) {
     const topicIds = topics.map((topic) => topic._id);
     const subtopics = await SubTopic.find({ topicId: { $in: topicIds } }).sort({ sortOrder: 1 });
 
-    const match: Record<string, unknown> = { isVerified: true };
+    const match: Record<string, unknown> = {
+      isVerified: true,
+      sourceType: { $nin: ["pyq", "pyq_variant"] },
+    };
     if (categoryId && mongoose.isValidObjectId(categoryId)) {
       match.categoryId = new mongoose.Types.ObjectId(categoryId);
     }

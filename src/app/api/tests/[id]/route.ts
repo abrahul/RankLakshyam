@@ -54,11 +54,14 @@ export async function GET(
 
     const review = attempt.questions.map((q) => {
       const question = byId.get(String(q.questionId));
-      const status = q.selectedOption
-        ? q.isCorrect
-          ? "correct"
-          : "wrong"
-        : "unattempted";
+      const status =
+        q.status === "skipped"
+          ? "unattempted"
+          : q.selectedOption
+            ? q.isCorrect
+              ? "correct"
+              : "wrong"
+            : "unattempted";
       return {
         questionId: q.questionId,
         selectedOption: q.selectedOption,
@@ -90,6 +93,7 @@ export async function GET(
           correctCount: attempt.correctCount,
           wrongCount: attempt.wrongCount,
           unattemptedCount: attempt.unattemptedCount,
+          skippedCount: attempt.skippedCount ?? attempt.unattemptedCount,
           score: attempt.score,
           accuracy: attempt.accuracy,
           durationSec: attempt.durationSec,

@@ -21,7 +21,15 @@ export async function GET(request: Request) {
     const legacyLevel = searchParams.get("level");
     const exam = searchParams.get("exam");
     const yearParam = searchParams.get("year");
-    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+    const mode = searchParams.get("mode");
+    const rawCount = searchParams.get("count") || searchParams.get("limit") || "20";
+    const wantsAll =
+      searchParams.get("all") === "1" ||
+      searchParams.get("all") === "true" ||
+      rawCount.toLowerCase() === "all";
+    const rawLimit = parseInt(rawCount, 10);
+    const maxLimit = 200;
+    const limit = Math.min(maxLimit, Math.max(1, wantsAll ? maxLimit : Number.isFinite(rawLimit) ? rawLimit : 20));
     const year = yearParam ? parseInt(yearParam, 10) : null;
 
     await connectDB();
@@ -43,13 +51,62 @@ export async function GET(request: Request) {
     };
 
     if (resolvedCategoryId) match.categoryId = resolvedCategoryId;
-    if (exam && exam.length <= 128) match.exam = exam;
+    if (exam && exam.length <= 128) {
+      match.$or = [{ exam }, { "pyq.exam": exam }, { examCode: exam }];
+    }
     if (year) match["pyq.year"] = year;
 
-    const questions = await Question.aggregate([
-      { $match: match },
-      { $sample: { size: limit } },
-      { $project: { correctOption: 0, explanation: 0, optionWhy: 0 } },
+    if (mode === "papers") {
+      const papers = await Question.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: {
+              exam: { $ifNull: ["$pyq.exam", "$exam"] },
+              year: "$pyq.year",
+              categoryId: "$categoryId",
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $match: { "_id.exam": { $ne: "" } } },
+        { $sort: { "_id.year": -1, "_id.exam": 1 } },
+        { $limit: limit },
+        {
+          $project: {
+            _id: 0,
+            exam: "$_id.exam",
+            year: "$_id.year",
+            categoryId: "$_id.categoryId",
+            count: 1,
+          },
+        },
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        data: papers,
+        meta: {
+          limit,
+          categoryId: resolvedCategoryId ? String(resolvedCategoryId) : undefined,
+          exam: exam || undefined,
+          year: year || undefined,
+        },
+      });
+    }
+
+    const questionStages: mongoose.PipelineStage[] = [{ $match: match }];
+    if (exam || year || wantsAll) {
+      questionStages.push({ $sort: { "pyq.year": -1, "pyq.questionNumber": 1, createdAt: 1 } });
+      questionStages.push({ $limit: limit });
+    } else {
+      questionStages.push({ $sample: { size: limit } });
+    }
+    questionStages.push({ $project: { answer: 0, correctOption: 0, explanation: 0, optionWhy: 0 } });
+
+    const [questions, total] = await Promise.all([
+      Question.aggregate(questionStages),
+      Question.countDocuments(match),
     ]);
 
     return NextResponse.json({
@@ -57,6 +114,9 @@ export async function GET(request: Request) {
       data: questions,
       meta: {
         limit,
+        total,
+        requestedAll: wantsAll,
+        capped: wantsAll && total > limit,
         categoryId: resolvedCategoryId ? String(resolvedCategoryId) : undefined,
         exam: exam || undefined,
         year: year || undefined,
