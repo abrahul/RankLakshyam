@@ -95,7 +95,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 ml-56">
+      <main className="flex-1 ml-56 max-w-[100vw] overflow-x-hidden">
         <header
           className="sticky top-0 z-30 px-6 py-4 flex items-center justify-between"
           style={{
@@ -123,7 +123,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <div className="p-6">{children}</div>
+        <div className="p-6 max-w-7xl mx-auto w-full">{children}</div>
       </main>
     </div>
   );

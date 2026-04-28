@@ -57,14 +57,14 @@ export default function AdminDashboard() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6">
         <KpiCard icon="👥" label="Total Users" value={overview.totalUsers} />
         <KpiCard icon="❓" label="Total Questions" value={overview.totalQuestions} accent />
         <KpiCard icon="✅" label="Verified" value={overview.verifiedQuestions} color="text-success-500" />
         <KpiCard icon="⚠️" label="Unverified" value={overview.unverifiedQuestions} color="text-amber-400" />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6">
         <KpiCard icon="📝" label="Total Attempts" value={overview.totalAttempts} />
         <KpiCard icon="🏆" label="Today's Players" value={overview.todayParticipants} />
         <KpiCard
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-surface-200/60 mb-4">Questions by Topic</h3>
           <div className="space-y-3">

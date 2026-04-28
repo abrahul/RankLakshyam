@@ -77,7 +77,7 @@ export default function DashboardPage() {
   const greeting = getGreeting();
 
   return (
-    <div className="px-4 pt-6 animate-fade-in">
+    <div className="px-4 pt-6 md:p-8 md:pt-10 animate-fade-in max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-surface-200/60 text-sm">{greeting}</p>
@@ -116,7 +116,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <Link href="/challenge" id="daily-challenge-card">
+      <Link href="/challenge" id="daily-challenge-card" className="block max-w-3xl">
         <div className="glass-card p-5 mb-4 relative overflow-hidden group cursor-pointer transition-all hover:border-primary-400/30">
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary-500/10 blur-[50px] group-hover:bg-primary-500/20 transition-all" />
           <div className="relative">
@@ -148,7 +148,7 @@ export default function DashboardPage() {
         </div>
       </Link>
 
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8 max-w-4xl">
         <StatCard icon="🎯" label="Accuracy" value={`${dashData?.accuracy || 0}%`} color="text-primary-400" />
         <StatCard icon="📚" label="Attempted" value={`${dashData?.totalAttempted || 0}`} color="text-accent-400" />
         <StatCard icon="🔥" label="Streak" value={`${dashData?.streak || 0} days`} color="text-orange-400" />
@@ -156,7 +156,7 @@ export default function DashboardPage() {
       </div>
 
       <h2 className="text-lg font-bold text-white mb-3">Quick Practice</h2>
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8 max-w-2xl">
         <Link href="/practice" id="quick-topic-practice">
           <ActionCard icon="📖" label="Topic Practice" subtitle="Choose a subject" color="#6366f1" />
         </Link>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
       </div>
 
       <h2 className="text-lg font-bold text-white mb-3">Topics</h2>
-      <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide">
+      <div className="flex gap-2 md:gap-4 overflow-x-auto pb-3 -mx-4 px-4 md:-mx-0 md:px-0 scrollbar-hide">
         {topics.slice(0, 8).map((topic) => (
           <Link
             key={topic.id}

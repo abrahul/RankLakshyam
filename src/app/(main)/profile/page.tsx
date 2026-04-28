@@ -89,7 +89,7 @@ export default function ProfilePage() {
     : 0;
 
   return (
-    <div className="px-4 pt-6 pb-28 animate-fade-in space-y-5">
+    <div className="px-4 pt-6 md:p-10 pb-28 md:pb-10 animate-fade-in space-y-5 max-w-3xl mx-auto">
       {/* Celebration overlay */}
       {celebration && (
         <MilestoneCelebration

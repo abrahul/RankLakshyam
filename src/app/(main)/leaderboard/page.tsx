@@ -39,7 +39,7 @@ export default function LeaderboardPage() {
   }, [period]);
 
   return (
-    <div className="px-4 pt-6 pb-24 animate-fade-in">
+    <div className="px-4 pt-6 md:p-10 pb-24 md:pb-10 animate-fade-in max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-display)] mb-6">
         🏆 Leaderboard
       </h1>
