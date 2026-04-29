@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Question from "@/lib/db/models/Question";
+import "@/lib/db/models/Exam";
 
 function normalizeTopicParam(value: string) {
   try {
