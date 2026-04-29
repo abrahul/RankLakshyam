@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db/connection";
 import Attempt from "@/lib/db/models/Attempt";
@@ -51,12 +51,287 @@ function buildProgress({
   };
 }
 
+async function updateAttemptRollups({
+  userId,
+  questionId,
+  topicId,
+  questionStyle,
+  isCorrect,
+  bookmarkWrong,
+}: {
+  userId: string;
+  questionId: string;
+  topicId: string;
+  questionStyle: QuestionStyle;
+  isCorrect: boolean;
+  bookmarkWrong: boolean;
+}) {
+  const now = new Date();
+
+  let bookmarkPromise = Promise.resolve();
+  if (bookmarkWrong) {
+    bookmarkPromise = Bookmark.updateOne(
+      { userId, questionId },
+      { $setOnInsert: { source: "wrong_answer", createdAt: now } },
+      { upsert: true }
+    ).then(() => {});
+  }
+
+  const questionProgressPromise = (async () => {
+    const doc = await QuestionProgress.findOneAndUpdate(
+      { userId, questionId },
+      {
+        $setOnInsert: { isMastered: false },
+        $inc: {
+          attempts: 1,
+          correctAttempts: isCorrect ? 1 : 0,
+          wrongAttempts: isCorrect ? 0 : 1,
+        },
+        $set: { lastAttemptedAt: now },
+      },
+      { upsert: true, returnDocument: "after" }
+    ).lean();
+
+    const attempts = doc?.attempts ?? 0;
+    const correctAttempts = doc?.correctAttempts ?? 0;
+    const isMastered = attempts >= 5 && correctAttempts / Math.max(1, attempts) >= 0.8;
+    await QuestionProgress.updateOne({ userId, questionId }, { $set: { isMastered } });
+  })();
+
+  const topicPerfPromise = (async () => {
+    const doc = await TopicPerformance.findOneAndUpdate(
+      { userId, topicId },
+      {
+        $setOnInsert: { accuracy: 0 },
+        $inc: { attempts: 1, correct: isCorrect ? 1 : 0, wrong: isCorrect ? 0 : 1 },
+        $set: { lastAttemptedAt: now },
+      },
+      { upsert: true, returnDocument: "after" }
+    ).lean();
+
+    const attempts = doc?.attempts ?? 0;
+    const correct = doc?.correct ?? 0;
+    const accuracy = attempts ? round((correct / attempts) * 100) : 0;
+    await TopicPerformance.updateOne({ userId, topicId }, { $set: { accuracy } });
+  })();
+
+  const stylePerfPromise = (async () => {
+    const doc = await StylePerformance.findOneAndUpdate(
+      { userId, questionStyle },
+      {
+        $setOnInsert: { accuracy: 0 },
+        $inc: { attempts: 1, correct: isCorrect ? 1 : 0, wrong: isCorrect ? 0 : 1 },
+        $set: { lastAttemptedAt: now },
+      },
+      { upsert: true, returnDocument: "after" }
+    ).lean();
+
+    const attempts = doc?.attempts ?? 0;
+    const correct = doc?.correct ?? 0;
+    const accuracy = attempts ? round((correct / attempts) * 100) : 0;
+    await StylePerformance.updateOne({ userId, questionStyle }, { $set: { accuracy } });
+  })();
+
+  await Promise.all([bookmarkPromise, questionProgressPromise, topicPerfPromise, stylePerfPromise]);
+}
+
+async function finalizeCompletedSession({
+  userId,
+  sessionId,
+  sessionType,
+  correctCount,
+  attemptedCount,
+  totalTimeSec,
+}: {
+  userId: string;
+  sessionId: string;
+  sessionType: string;
+  correctCount: number;
+  attemptedCount: number;
+  totalTimeSec: number;
+}) {
+  let streak = await Streak.findOne({ userId });
+  if (!streak) {
+    streak = await Streak.create({ userId, currentStreak: 0, longestStreak: 0 });
+  }
+
+  const today = getTodayIST();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+  let newStreak = 1;
+  if (streak.lastCompletedDate === yesterdayStr) {
+    newStreak = streak.currentStreak + 1;
+  } else if (streak.lastCompletedDate === today) {
+    newStreak = streak.currentStreak;
+  }
+
+  const newLongest = Math.max(newStreak, streak.longestStreak);
+  const avgTimeSec = attemptedCount ? round(totalTimeSec / attemptedCount) : 0;
+  const xpResult = calculateXP({
+    correctCount,
+    totalQuestions: Math.max(1, attemptedCount),
+    avgTimeSec,
+    currentStreak: newStreak,
+    sessionType,
+  });
+
+  await Promise.all([
+    Streak.updateOne(
+      { userId },
+      {
+        $set: {
+          currentStreak: newStreak,
+          longestStreak: newLongest,
+          lastCompletedDate: today,
+          [`calendar.${today}`]: { completed: true, score: correctCount },
+        },
+      }
+    ),
+    User.updateOne(
+      { _id: userId },
+      {
+        $inc: {
+          "stats.totalAttempted": attemptedCount,
+          "stats.totalCorrect": correctCount,
+          "stats.totalXP": xpResult.totalXP,
+        },
+        $set: {
+          "stats.currentStreak": newStreak,
+          "stats.longestStreak": newLongest,
+          "stats.lastActiveDate": today,
+        },
+      }
+    ),
+    TestSession.updateOne({ _id: sessionId }, { $set: { xpEarned: xpResult.totalXP } }),
+  ]);
+
+  const user = await User.findById(userId).lean();
+  if (user) {
+    const completionHour = parseInt(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", hour12: false })
+    );
+    const oldXP = user.stats?.totalXP ?? 0;
+    const newBadges = checkNewBadges({
+      totalAttempted: (user.stats?.totalAttempted ?? 0) + attemptedCount,
+      totalCorrect: (user.stats?.totalCorrect ?? 0) + correctCount,
+      currentStreak: newStreak,
+      todayScore: sessionType === "daily" ? correctCount : undefined,
+      avgTimeSec,
+      topicAccuracy: user.stats?.topicAccuracy ?? new Map(),
+      completionHour,
+      existingBadges: (user.badges || []).map((b: { id: string }) => b.id),
+    });
+
+    if (newBadges.length > 0) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $push: {
+            badges: {
+              $each: newBadges.map((id) => ({ id, earnedAt: new Date() })),
+            },
+          },
+        }
+      );
+    }
+
+    const newRank = getRank(oldXP + xpResult.totalXP);
+    const oldRank = getRank(oldXP);
+    if (newRank.level > oldRank.level) {
+      await User.updateOne({ _id: userId }, { $set: { "stats.rankLevel": newRank.level } });
+    }
+  }
+
+  try {
+    const fullSession = await TestSession.findById(
+      sessionId,
+      { questionIds: 1, totalQuestions: 1, skippedQuestionIds: 1, startedAt: 1, completedAt: 1, totalTimeSec: 1 }
+    ).lean();
+
+    if (!fullSession) return;
+
+    const attempts = await Attempt.find({ sessionId, userId }).lean();
+    const attemptByQuestionId = new Map<string, (typeof attempts)[number]>(
+      attempts.map((a) => [String(a.questionId), a])
+    );
+    const fullSkippedIds = new Set((fullSession.skippedQuestionIds || []).map((id) => String(id)));
+
+    const missingIds = fullSession.questionIds.filter((qid) => !attemptByQuestionId.has(String(qid)));
+    const missingCorrect = missingIds.length
+      ? await Question.find({ _id: { $in: missingIds } }, { answer: 1 }).lean()
+      : [];
+    const correctById = new Map<string, string>(
+      missingCorrect.map((q) => [String(q._id), String((q as { answer?: string }).answer)])
+    );
+
+    const questions = fullSession.questionIds.map((qid) => {
+      const attempt = attemptByQuestionId.get(String(qid));
+      if (attempt) {
+        return {
+          questionId: attempt.questionId,
+          selectedOption: attempt.selectedOption,
+          correctOption: attempt.correctOption,
+          isCorrect: !!attempt.isCorrect,
+          timeTakenSec: attempt.timeTakenSec ?? 0,
+          status: "answered" as const,
+        };
+      }
+
+      const correctOption = correctById.get(String(qid)) || "A";
+      const skipped = fullSkippedIds.has(String(qid));
+      return {
+        questionId: qid,
+        selectedOption: null,
+        correctOption: correctOption as "A" | "B" | "C" | "D",
+        isCorrect: false,
+        timeTakenSec: 0,
+        status: skipped ? ("skipped" as const) : ("unattempted" as const),
+      };
+    });
+
+    const snapshotCorrectCount = questions.filter((q) => q.isCorrect).length;
+    const snapshotAttemptedCount = questions.filter((q) => q.selectedOption).length;
+    const skippedCount = questions.filter((q) => q.status === "skipped").length;
+    const unattemptedCount = fullSession.totalQuestions - snapshotAttemptedCount;
+    const wrongCount = snapshotAttemptedCount - snapshotCorrectCount;
+    const accuracy = snapshotAttemptedCount ? round((snapshotCorrectCount / snapshotAttemptedCount) * 100) : 0;
+
+    await TestAttempt.updateOne(
+      { testSessionId: sessionId },
+      {
+        $setOnInsert: {
+          userId,
+          testSessionId: sessionId,
+          testId: String(sessionId),
+          questions,
+          totalQuestions: fullSession.totalQuestions,
+          correctCount: snapshotCorrectCount,
+          wrongCount,
+          unattemptedCount,
+          skippedCount,
+          score: snapshotCorrectCount,
+          accuracy,
+          startedAt: fullSession.startedAt,
+          completedAt: fullSession.completedAt ?? new Date(),
+          durationSec: fullSession.totalTimeSec ?? 0,
+        },
+      },
+      { upsert: true }
+    );
+  } catch (error) {
+    console.error("TestAttempt snapshot error:", error);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated", statusCode: 401 } }, { status: 401 });
     }
+    const userId = session.user.id;
 
     const body = await request.json();
     const { sessionId, questionId, selectedOption, timeTakenSec } = body;
@@ -93,7 +368,18 @@ export async function POST(request: Request) {
     await connectDB();
 
     // Validate session belongs to user
-    const testSession = await TestSession.findOne({ _id: sessionId, userId: session.user.id });
+    const testSession = await TestSession.findOne({ _id: sessionId, userId: session.user.id })
+      .select({
+        type: 1,
+        questionIds: 1,
+        skippedQuestionIds: 1,
+        totalQuestions: 1,
+        correctCount: 1,
+        totalTimeSec: 1,
+        currentIndex: 1,
+        status: 1,
+      })
+      .lean();
     if (!testSession) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_SESSION", message: "Session not found", statusCode: 404 } },
@@ -131,9 +417,8 @@ export async function POST(request: Request) {
       const wasSkipped = skippedIds.has(String(questionObjectId));
       skippedIds.add(String(questionObjectId));
 
-      const attemptedCount = await Attempt.countDocuments({ sessionId, userId: session.user.id });
       const skippedCount = skippedIds.size;
-      const newIndex = attemptedCount + skippedCount;
+      const newIndex = testSession.currentIndex + (wasSkipped ? 0 : 1);
       const newTotalTime = testSession.totalTimeSec + (wasSkipped ? 0 : timeTakenSec);
       const isComplete = newIndex >= testSession.totalQuestions;
 
@@ -165,7 +450,13 @@ export async function POST(request: Request) {
     }
 
     // Get correct answer
-    const question = await Question.findById(questionId, { answer: 1, explanation: 1, topicId: 1, difficulty: 1, questionStyle: 1 });
+    const question = await Question.findById(questionId, {
+      answer: 1,
+      explanation: 1,
+      topicId: 1,
+      difficulty: 1,
+      questionStyle: 1,
+    }).lean();
     if (!question) {
       return NextResponse.json(
         { success: false, error: { code: "QUESTION_NOT_FOUND", message: "Question not found", statusCode: 404 } },
@@ -216,91 +507,45 @@ export async function POST(request: Request) {
 
     const sessionUpdatePromise = TestSession.updateOne({ _id: sessionId }, { $set: sessionUpdate });
 
-    // Auto-bookmark wrong answers
-    let bookmarkPromise = Promise.resolve();
-    if (!isCorrect) {
-      bookmarkPromise = Bookmark.updateOne(
-        { userId: session.user.id, questionId },
-        { $setOnInsert: { source: "wrong_answer", createdAt: new Date() } },
-        { upsert: true }
-      ).then(() => {});
-    }
-
-    // Update per-user performance collections (best-effort, does not affect scoring)
-    const now = new Date();
     const questionStyle =
       (question as unknown as { questionStyle?: QuestionStyle }).questionStyle || DEFAULT_QUESTION_STYLE;
 
-    const questionProgressPromise = (async () => {
-      const doc = await QuestionProgress.findOneAndUpdate(
-        { userId: session.user.id, questionId },
-        {
-          $setOnInsert: { isMastered: false },
-          $inc: {
-            attempts: 1,
-            correctAttempts: isCorrect ? 1 : 0,
-            wrongAttempts: isCorrect ? 0 : 1,
-          },
-          $set: { lastAttemptedAt: now },
-        },
-        { upsert: true, returnDocument: "after" }
-      ).lean();
+    await Promise.all([attemptPromise, sessionUpdatePromise]);
 
-      const attempts = doc?.attempts ?? 0;
-      const correctAttempts = doc?.correctAttempts ?? 0;
-      const isMastered = attempts >= 5 && correctAttempts / Math.max(1, attempts) >= 0.8;
-      await QuestionProgress.updateOne({ userId: session.user.id, questionId }, { $set: { isMastered } });
-    })();
+    after(async () => {
+      try {
+        await updateAttemptRollups({
+          userId,
+          questionId,
+          topicId: question.topicId,
+          questionStyle,
+          isCorrect,
+          bookmarkWrong: !isCorrect,
+        });
 
-    const topicPerfPromise = (async () => {
-      const doc = await TopicPerformance.findOneAndUpdate(
-        { userId: session.user.id, topicId: question.topicId },
-        {
-          $setOnInsert: { accuracy: 0 },
-          $inc: { attempts: 1, correct: isCorrect ? 1 : 0, wrong: isCorrect ? 0 : 1 },
-          $set: { lastAttemptedAt: now },
-        },
-        { upsert: true, returnDocument: "after" }
-      ).lean();
+        if (isLastQuestion) {
+          await finalizeCompletedSession({
+            userId,
+            sessionId,
+            sessionType: testSession.type,
+            correctCount: newCorrectCount,
+            attemptedCount,
+            totalTimeSec: newTotalTime,
+          });
+        }
+      } catch (error) {
+        console.error("Post-answer background updates failed:", error);
+      }
+    });
 
-      const attempts = doc?.attempts ?? 0;
-      const correct = doc?.correct ?? 0;
-      const accuracy = attempts ? round((correct / attempts) * 100) : 0;
-      await TopicPerformance.updateOne({ userId: session.user.id, topicId: question.topicId }, { $set: { accuracy } });
-    })();
-
-    const stylePerfPromise = (async () => {
-      const doc = await StylePerformance.findOneAndUpdate(
-        { userId: session.user.id, questionStyle },
-        {
-          $setOnInsert: { accuracy: 0 },
-          $inc: { attempts: 1, correct: isCorrect ? 1 : 0, wrong: isCorrect ? 0 : 1 },
-          $set: { lastAttemptedAt: now },
-        },
-        { upsert: true, returnDocument: "after" }
-      ).lean();
-
-      const attempts = doc?.attempts ?? 0;
-      const correct = doc?.correct ?? 0;
-      const accuracy = attempts ? round((correct / attempts) * 100) : 0;
-      await StylePerformance.updateOne({ userId: session.user.id, questionStyle }, { $set: { accuracy } });
-    })();
-
-    // Execute writes in parallel
-    await Promise.all([
-      attemptPromise,
-      sessionUpdatePromise,
-      bookmarkPromise,
-      questionProgressPromise,
-      topicPerfPromise,
-      stylePerfPromise,
-    ]);
-
-    // If session completed, update XP and streak
-    let xpResult = null;
-    let streakData = null;
+    /*
+     * Legacy synchronous completion path moved to finalizeCompletedSession().
+     *
+    // If session completed, XP/streak/badges/history are finalized in the after() callback above.
+    let xpResult: ReturnType<typeof calculateXP> | null = null;
+    let streakData: { currentStreak: number; longestStreak: number } | null = null;
     let gamificationEvents: Record<string, unknown> | null = null;
-    if (isLastQuestion) {
+    if (false && isLastQuestion) {
       // Get or create streak
       let streak = await Streak.findOne({ userId: session.user.id });
       if (!streak) {
@@ -506,6 +751,7 @@ export async function POST(request: Request) {
       }
     }
 
+    */
     return NextResponse.json({
       success: true,
       data: {
@@ -519,7 +765,6 @@ export async function POST(request: Request) {
           correctCount: newCorrectCount,
           skippedCount,
         }),
-        ...(isLastQuestion && { xp: xpResult, streak: streakData, gamification: gamificationEvents }),
       },
     });
   } catch (error) {

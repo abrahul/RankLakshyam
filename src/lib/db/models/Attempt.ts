@@ -47,6 +47,7 @@ const AttemptSchema = new Schema<IAttempt>({
 
 AttemptSchema.index({ userId: 1, topicId: 1, createdAt: -1 });
 AttemptSchema.index({ sessionId: 1, createdAt: 1 });
+AttemptSchema.index({ userId: 1, sessionId: 1, questionId: 1 }, { unique: true });
 AttemptSchema.index({ questionId: 1, isCorrect: 1 });
 AttemptSchema.index({ userId: 1, createdAt: -1 });
 AttemptSchema.index({ createdAt: 1 });
