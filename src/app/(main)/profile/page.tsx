@@ -13,6 +13,8 @@ const MilestoneCelebration = dynamic(
   { ssr: false }
 );
 
+import { useReportStore } from "@/lib/store/useReportStore";
+
 interface StreakData {
   currentStreak: number;
   longestStreak: number;
@@ -59,6 +61,7 @@ export default function ProfilePage() {
     badgeIcon: string;
     bonusXP: number;
   } | null>(null);
+  const openReport = useReportStore((s) => s.openReport);
 
   useEffect(() => {
     async function fetchAll() {
@@ -228,6 +231,13 @@ export default function ProfilePage() {
         <SettingRow label="Target Exam" value={(session?.user?.targetExam || "LDC").toUpperCase()} />
         <SettingRow label="Language" value="Malayalam + English" />
         <SettingRow label="Daily Reminder" value="7:00 AM" />
+        <button
+          onClick={() => openReport()}
+          className="w-full glass-card-light p-3.5 flex items-center justify-between hover:bg-white/5 transition-all text-left"
+        >
+          <span className="text-sm text-surface-200">Report a Bug</span>
+          <span className="text-sm text-surface-200/50">→</span>
+        </button>
       </div>
 
       {/* Sign Out */}

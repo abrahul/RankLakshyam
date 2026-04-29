@@ -10,6 +10,8 @@ const MilestoneCelebration = dynamic(
   { ssr: false }
 );
 
+import { useReportStore } from "@/lib/store/useReportStore";
+
 interface QuestionData {
   _id: string;
   text: { en: string; ml: string };
@@ -234,6 +236,7 @@ export default function PyqPracticeClient({
     badgeIcon: string;
     bonusXP: number;
   } | null>(null);
+  const openReport = useReportStore((s) => s.openReport);
 
   useEffect(() => {
     if (loading || selectedOption || showResults) return;
@@ -589,9 +592,18 @@ export default function PyqPracticeClient({
         </button>
         <div className="text-right">
           <p className="text-xs text-surface-200/40">{examLabel}</p>
-          <p className="text-[10px] text-surface-200/30">
-            Q {currentIndex + 1} / {questions.length}
-          </p>
+          <div className="flex items-center justify-end gap-2 mt-0.5">
+            <button
+              onClick={() => openReport(current._id)}
+              className="text-surface-200/40 hover:text-surface-200/80 transition-colors"
+              title="Report Issue"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+            </button>
+            <p className="text-[10px] text-surface-200/30">
+              Q {currentIndex + 1} / {questions.length}
+            </p>
+          </div>
         </div>
       </div>
 

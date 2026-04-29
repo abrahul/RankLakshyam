@@ -10,6 +10,8 @@ const MilestoneCelebration = dynamic(
   { ssr: false }
 );
 
+import { useReportStore } from "@/lib/store/useReportStore";
+
 interface QuestionData {
   _id: string;
   text: { en: string; ml: string };
@@ -53,6 +55,7 @@ export default function ChallengePage() {
     badgeIcon: string;
     bonusXP: number;
   } | null>(null);
+  const openReport = useReportStore((s) => s.openReport);
 
   // Timer
   useEffect(() => {
@@ -313,9 +316,18 @@ export default function ChallengePage() {
           <span className="text-sm font-medium text-surface-200">
             Q {currentIndex + 1}/{questions.length}
           </span>
-          <div className="flex items-center gap-1.5 text-sm">
-            <span className="text-surface-200/40">⏱</span>
-            <span className="text-surface-200 font-mono font-medium">{timer}s</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => openReport(question._id)}
+              className="text-surface-200/40 hover:text-surface-200/80 transition-colors"
+              title="Report Issue"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+            </button>
+            <div className="flex items-center gap-1.5 text-sm">
+              <span className="text-surface-200/40">⏱</span>
+              <span className="text-surface-200 font-mono font-medium">{timer}s</span>
+            </div>
           </div>
         </div>
         <div className="progress-track">

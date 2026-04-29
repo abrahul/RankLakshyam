@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useReportStore } from "@/lib/store/useReportStore";
 
 const navItems = [
   { href: "/", icon: "🏠", label: "Home", activeIcon: "🏠" },
@@ -14,6 +15,7 @@ const navItems = [
 
 export default function DesktopSidebar() {
   const pathname = usePathname();
+  const openReport = useReportStore((s) => s.openReport);
 
   return (
     <aside
@@ -62,7 +64,13 @@ export default function DesktopSidebar() {
         })}
       </nav>
 
-      <div className="p-6 border-t border-white/5 text-center">
+      <div className="p-6 border-t border-white/5 text-center flex flex-col gap-3">
+        <button
+          onClick={() => openReport()}
+          className="text-xs font-semibold text-surface-200/50 hover:text-white transition-colors"
+        >
+          🚩 Report a Bug
+        </button>
          <p className="text-[10px] text-surface-200/30">
           RankLakshyam v0.1.0<br/>Made with ❤️
         </p>

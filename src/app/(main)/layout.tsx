@@ -3,6 +3,7 @@
 import { SessionProvider } from "next-auth/react";
 import BottomNav from "@/components/layout/BottomNav";
 import DesktopSidebar from "@/components/layout/DesktopSidebar";
+import ReportModal from "@/components/ReportModal";
 
 export default function MainLayout({
   children,
@@ -22,6 +23,7 @@ export default function MainLayout({
       <div className="md:hidden">
         <BottomNav />
       </div>
+      <ReportModal />
     </SessionProvider>
   );
 }

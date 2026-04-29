@@ -10,6 +10,8 @@ const MilestoneCelebration = dynamic(
   { ssr: false }
 );
 
+import { useReportStore } from "@/lib/store/useReportStore";
+
 interface QuestionData {
   _id: string;
   text: { en: string; ml: string };
@@ -98,6 +100,7 @@ export default function TopicPracticeClient({
     badgeIcon: string;
     bonusXP: number;
   } | null>(null);
+  const openReport = useReportStore((s) => s.openReport);
 
   const current = questions[currentIndex];
   const currentId = current?._id || "";
@@ -501,7 +504,16 @@ export default function TopicPracticeClient({
                   </p>
                 ) : null}
               </div>
-              <p className="text-xs text-surface-200/50">{timer}s</p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => openReport(current._id)}
+                  className="text-surface-200/40 hover:text-surface-200/80 transition-colors"
+                  title="Report Issue"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+                </button>
+                <p className="text-xs text-surface-200/50">{timer}s</p>
+              </div>
             </div>
 
             <div className="space-y-1.5">

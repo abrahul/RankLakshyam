@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useReportStore } from "@/lib/store/useReportStore";
 
 const navItems = [
   { href: "/", icon: "🏠", label: "Home", activeIcon: "🏠" },
@@ -14,6 +15,7 @@ const navItems = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const openReport = useReportStore((s) => s.openReport);
 
   return (
     <nav
@@ -64,6 +66,15 @@ export default function BottomNav() {
           );
         })}
       </div>
+      {/* Floating Report Button for Mobile */}
+      <button
+        onClick={() => openReport()}
+        className="absolute -top-12 right-4 w-10 h-10 rounded-full bg-surface-800 border border-white/10 text-surface-200/50 hover:text-white flex items-center justify-center shadow-lg transition-colors"
+        title="Report Bug"
+      >
+        🚩
+      </button>
+      
       {/* Safe area padding for iOS */}
       <div className="h-[env(safe-area-inset-bottom)]" />
     </nav>

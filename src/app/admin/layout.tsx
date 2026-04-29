@@ -14,6 +14,7 @@ const navItems = [
   { href: "/admin/ai", icon: "🤖", label: "AI Generate" },
   { href: "/admin/users", icon: "👥", label: "Users" },
   { href: "/admin/categories", icon: "🗂️", label: "Categories" },
+  { href: "/admin/reports", icon: "🚩", label: "Reports" },
 ];
 
 function AdminContent({ children }: { children: React.ReactNode }) {

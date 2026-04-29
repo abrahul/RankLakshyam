@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useReportStore } from "@/lib/store/useReportStore";
 
 type ReviewQuestion = {
   _id: string;
@@ -15,6 +16,7 @@ export default function UnattemptedQuestionsPage() {
   const [items, setItems] = useState<ReviewQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const openReport = useReportStore((s) => s.openReport);
 
   useEffect(() => {
     async function load() {
@@ -71,9 +73,20 @@ export default function UnattemptedQuestionsPage() {
         <div className="space-y-2">
           {items.map((q, idx) => (
             <div key={q._id} className="glass-card-light p-4 animate-fade-in" style={{ animationDelay: `${idx * 15}ms` }}>
-              <p className="text-sm font-semibold text-white">{q.text.en}</p>
-              {q.text.ml ? <p className="text-xs text-surface-200/60 mt-1">{q.text.ml}</p> : null}
-              <div className="flex flex-wrap gap-2 mt-2 text-[11px] text-surface-200/40">
+              <div className="flex justify-between items-start gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-white">{q.text.en}</p>
+                  {q.text.ml ? <p className="text-xs text-surface-200/60 mt-1">{q.text.ml}</p> : null}
+                </div>
+                <button
+                  onClick={() => openReport(q._id)}
+                  className="shrink-0 text-surface-200/40 hover:text-surface-200/80 p-1 transition-colors"
+                  title="Report Issue"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3 text-[11px] text-surface-200/40">
                 <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">{q.topicId}</span>
                 <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">style: {q.questionStyle}</span>
                 <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">difficulty: {q.difficulty}</span>
