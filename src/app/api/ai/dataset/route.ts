@@ -27,7 +27,8 @@ import { QUESTION_STYLE_VALUES, type QuestionStyle } from "@/lib/question-styles
 type Style = QuestionStyle;
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
-  return topic?.categoryId || topic?.categoryIds?.[0] || null;
+  const first = topic?.categoryId || topic?.categoryIds?.[0];
+  return first ? new mongoose.Types.ObjectId(String(first)) : null;
 }
 
 function matchesLevel(category: { slug?: string; name?: { en?: string } } | null, level: string) {
@@ -53,7 +54,7 @@ async function resolveCategoryIdForQuestion(
     .select({ _id: 1, slug: 1, name: 1 })
     .lean();
   const match = categories.find((category) => matchesLevel(category, level));
-  return match?._id || getPrimaryCategoryId(topic);
+  return match?._id ? new mongoose.Types.ObjectId(String(match._id)) : getPrimaryCategoryId(topic);
 }
 
 const SourceTypeSchema = z.enum(["pyq", "institute", "internet"]);
@@ -272,6 +273,11 @@ export async function POST(request: Request) {
           if (examDoc?._id) examTags = [examDoc._id as unknown as mongoose.Types.ObjectId];
         }
 
+        const resolvedSubtopicId =
+          finalQuestion.subTopic && mongoose.isValidObjectId(finalQuestion.subTopic)
+            ? new mongoose.Types.ObjectId(finalQuestion.subTopic)
+            : undefined;
+
         const created = await Question.create({
           text: { en: finalQuestion.text.en, ml: finalQuestion.text.ml ?? "" },
           options: finalQuestion.options.map((o) => ({
@@ -286,10 +292,7 @@ export async function POST(request: Request) {
           },
           categoryId,
           topicId: finalQuestion.topicId,
-          subtopicId:
-            finalQuestion.subTopic && mongoose.isValidObjectId(finalQuestion.subTopic)
-              ? new mongoose.Types.ObjectId(finalQuestion.subTopic)
-              : undefined,
+          ...(resolvedSubtopicId ? { subtopicId: resolvedSubtopicId } : {}),
           examTags,
           tags: finalQuestion.tags ?? [],
           difficulty: finalQuestion.difficulty,
@@ -357,6 +360,11 @@ export async function POST(request: Request) {
                 if (examDoc?._id) variantExamTags = [examDoc._id as unknown as mongoose.Types.ObjectId];
               }
 
+              const resolvedVariantSubtopicId =
+                v.subTopic && mongoose.isValidObjectId(v.subTopic)
+                  ? new mongoose.Types.ObjectId(v.subTopic)
+                  : undefined;
+
               const createdVariant = await Question.create({
                 text: { en: v.text.en, ml: v.text.ml ?? "" },
                 options: v.options.map((o) => ({
@@ -368,10 +376,7 @@ export async function POST(request: Request) {
                 explanation: { en: v.explanation.en, ml: v.explanation.ml },
                 categoryId,
                 topicId: v.topicId,
-                subtopicId:
-                  v.subTopic && mongoose.isValidObjectId(v.subTopic)
-                    ? new mongoose.Types.ObjectId(v.subTopic)
-                    : undefined,
+                ...(resolvedVariantSubtopicId ? { subtopicId: resolvedVariantSubtopicId } : {}),
                 examTags: variantExamTags,
                 tags: v.tags ?? [],
                 difficulty: v.difficulty,

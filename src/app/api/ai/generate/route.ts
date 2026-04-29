@@ -15,7 +15,8 @@ import { createOpenAIJsonResponse } from "@/app/api/ai/openai";
 import { PscQuestionJsonSchema, PscQuestionSchema } from "@/app/api/ai/schema";
 
 function getPrimaryCategoryId(topic: { categoryId?: unknown; categoryIds?: unknown[] } | null | undefined) {
-  return topic?.categoryId || topic?.categoryIds?.[0] || null;
+  const first = topic?.categoryId || topic?.categoryIds?.[0];
+  return first ? new mongoose.Types.ObjectId(String(first)) : null;
 }
 
 function matchesLevel(category: { slug?: string; name?: { en?: string } } | null, level: string) {
@@ -41,7 +42,7 @@ async function resolveCategoryIdForQuestion(
     .select({ _id: 1, slug: 1, name: 1 })
     .lean();
   const match = categories.find((category) => matchesLevel(category, level));
-  return match?._id || getPrimaryCategoryId(topic);
+  return match?._id ? new mongoose.Types.ObjectId(String(match._id)) : getPrimaryCategoryId(topic);
 }
 
 export async function POST(request: Request) {
@@ -141,6 +142,11 @@ export async function POST(request: Request) {
       if (examDoc?._id) examTags = [examDoc._id as unknown as mongoose.Types.ObjectId];
     }
 
+    const resolvedSubtopicId =
+      parsed.subTopic && mongoose.isValidObjectId(parsed.subTopic)
+        ? new mongoose.Types.ObjectId(parsed.subTopic)
+        : undefined;
+
     const created = await Question.create({
       text: { en: parsed.text.en, ml: parsed.text.ml ?? "" },
       options: parsed.options.map((o) => ({
@@ -152,10 +158,7 @@ export async function POST(request: Request) {
       explanation: { en: parsed.explanation.en, ml: parsed.explanation.ml },
       categoryId: primaryCategoryId,
       topicId: parsed.topicId,
-      subtopicId:
-        parsed.subTopic && mongoose.isValidObjectId(parsed.subTopic)
-          ? new mongoose.Types.ObjectId(parsed.subTopic)
-          : undefined,
+      ...(resolvedSubtopicId ? { subtopicId: resolvedSubtopicId } : {}),
       examTags,
       tags: parsed.tags ?? [],
       difficulty: parsed.difficulty,

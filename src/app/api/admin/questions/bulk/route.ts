@@ -166,7 +166,7 @@ export async function POST(request: Request) {
           explanation: { en: q.explanation?.en || "", ml: q.explanation?.ml || "" },
           categoryId: primaryCategoryId,
           topicId: effectiveTopicId,
-          subtopicId: resolvedSubtopicId,
+          ...(resolvedSubtopicId ? { subtopicId: resolvedSubtopicId } : {}),
           examTags: resolvedExamTags,
           tags: q.tags || [],
           difficulty: q.difficulty || 2,

@@ -214,7 +214,7 @@ export async function POST(request: Request) {
       explanation: { en: explanation?.en || "", ml: explanation?.ml || "" },
       categoryId: primaryCategoryId,
       topicId,
-      subtopicId: resolvedSubtopicId,
+      ...(resolvedSubtopicId ? { subtopicId: resolvedSubtopicId } : {}),
       examTags: resolvedExamTags,
       tags: tags || [],
       difficulty: difficulty || 2,
