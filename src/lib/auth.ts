@@ -64,6 +64,7 @@ if (!authSecret || authSecret.includes("generate-a-random-secret-here")) {
     "Missing auth secret. Set NEXTAUTH_SECRET (or AUTH_SECRET) in .env.local to a long random value."
   );
 }
+const resolvedAuthSecret = authSecret;
 
 const googleClientId = process.env.AUTH_GOOGLE_ID;
 const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
@@ -77,7 +78,7 @@ if (!googleClientSecret || googleClientSecret.includes("your-google-client-secre
 }
 
 const nextAuth = NextAuth({
-  secret: authSecret,
+  secret: resolvedAuthSecret,
   providers: [
     Google({
       clientId: googleClientId,
@@ -203,6 +204,14 @@ type MobileSession = {
   };
 };
 
+type MobileBearerPayload = {
+  userId: string;
+  email: string;
+  role?: string;
+  onboarded?: boolean;
+  targetExam?: string;
+};
+
 async function mobileAuthFromBearer(): Promise<MobileSession | null> {
   try {
     const headersList = await headers();
@@ -210,13 +219,8 @@ async function mobileAuthFromBearer(): Promise<MobileSession | null> {
     if (!authorization?.startsWith("Bearer ")) return null;
 
     const token = authorization.slice(7);
-    const decoded = jwt.verify(token, authSecret) as {
-      userId: string;
-      email: string;
-      role: string;
-      onboarded: boolean;
-      targetExam: string;
-    };
+    const decoded = jwt.verify(token, resolvedAuthSecret) as unknown as MobileBearerPayload;
+    if (!decoded.userId || !decoded.email) return null;
 
     return {
       user: {
