@@ -1,0 +1,16 @@
+export const queryKeys = {
+  dashboard: ["dashboard"] as const,
+  categories: ["categories"] as const,
+  topics: (categoryId?: string) => ["topics", categoryId] as const,
+  subtopics: (topicId?: string) => ["subtopics", topicId] as const,
+  questions: (params: Record<string, string>) => ["questions", params] as const,
+  dailyChallenge: ["daily-challenge"] as const,
+  leaderboard: (period: string) => ["leaderboard", period] as const,
+  performance: ["performance"] as const,
+  streaks: ["streaks"] as const,
+  weakAreas: ["weak-areas"] as const,
+  review: (filter: string) => ["review", filter] as const,
+  badges: ["badges"] as const,
+  pyq: (params: Record<string, string>) => ["pyq", params] as const,
+  exams: (categoryId?: string) => ["exams", categoryId] as const,
+} as const;

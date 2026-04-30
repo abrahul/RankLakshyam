@@ -76,7 +76,7 @@ if (!googleClientSecret || googleClientSecret.includes("your-google-client-secre
   throw new Error("Missing Google OAuth client secret. Set AUTH_GOOGLE_SECRET in .env.local.");
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+const nextAuth = NextAuth({
   secret: authSecret,
   providers: [
     Google({
@@ -182,3 +182,61 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
   },
 });
+
+export const { handlers, signIn, signOut } = nextAuth;
+
+// Re-export auth with mobile Bearer token support.
+// When a mobile client sends `Authorization: Bearer <jwt>`, we decode it directly
+// instead of relying on the NextAuth cookie. This avoids modifying every API route.
+import jwt from "jsonwebtoken";
+import { headers } from "next/headers";
+
+type MobileSession = {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    onboarded: boolean;
+    targetExam: string;
+    name?: string;
+    image?: string;
+  };
+};
+
+async function mobileAuthFromBearer(): Promise<MobileSession | null> {
+  try {
+    const headersList = await headers();
+    const authorization = headersList.get("authorization");
+    if (!authorization?.startsWith("Bearer ")) return null;
+
+    const token = authorization.slice(7);
+    const decoded = jwt.verify(token, authSecret) as {
+      userId: string;
+      email: string;
+      role: string;
+      onboarded: boolean;
+      targetExam: string;
+    };
+
+    return {
+      user: {
+        id: decoded.userId,
+        email: decoded.email,
+        role: decoded.role || "user",
+        onboarded: decoded.onboarded ?? false,
+        targetExam: decoded.targetExam || "ldc",
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function auth(): Promise<any> {
+  // Check for mobile Bearer token first
+  const mobileSession = await mobileAuthFromBearer();
+  if (mobileSession) return mobileSession;
+
+  // Fall back to NextAuth cookie-based session
+  return nextAuth.auth();
+}
