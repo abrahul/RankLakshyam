@@ -79,14 +79,14 @@ export function parseCAScope(body: Record<string, unknown>): CAScope | { error: 
   const month = Number(body.month);
   const year = Number(body.year);
 
-  if (caType === "daily" || date) {
+  if (caType === "daily" || (!caType && date)) {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return { error: "date YYYY-MM-DD required for daily current affairs" };
     }
     return { caType: "daily", date };
   }
 
-  if (caType === "monthly" || month || year) {
+  if (caType === "monthly" || (!caType && (month || year))) {
     if (!month || month < 1 || month > 12 || !year || year < 2000 || year > 2100) {
       return { error: "month (1-12) and year required for monthly current affairs" };
     }

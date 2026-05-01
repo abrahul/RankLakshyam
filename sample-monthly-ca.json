@@ -1,0 +1,27 @@
+{
+  "caType": "monthly",
+  "month": 5,
+  "year": 2026,
+  "questions": [
+    {
+      "text": {
+        "en": "Which state launched the Green Hydrogen Valley project in April 2026?",
+        "ml": "2026 ഏപ്രിലിൽ ഗ്രീൻ ഹൈഡ്രജൻ വാലി പദ്ധതി ആരംഭിച്ച സംസ്ഥാനം ഏത്?"
+      },
+      "options": [
+        { "key": "A", "en": "Kerala", "ml": "കേരളം" },
+        { "key": "B", "en": "Tamil Nadu", "ml": "തമിഴ്നാട്" },
+        { "key": "C", "en": "Karnataka", "ml": "കർണാടക" },
+        { "key": "D", "en": "Maharashtra", "ml": "മഹാരാഷ്ട്ര" }
+      ],
+      "correctOption": "A",
+      "explanation": {
+        "en": "Use this field for a short source-backed explanation.",
+        "ml": "ചുരുക്കത്തിലുള്ള വിശദീകരണം ഇവിടെ ചേർക്കുക."
+      },
+      "tags": ["current-affairs", "environment"],
+      "difficulty": 2,
+      "questionStyle": "direct"
+    }
+  ]
+}
