@@ -15,9 +15,14 @@ import { colors } from "../../src/constants/colors";
 import type { Question, AttemptResult } from "../../src/types/question";
 
 export default function TopicPracticeScreen() {
-  const { topicId } = useLocalSearchParams<{ topicId: string }>();
+  const { topicId, subtopicId, subtopicName } = useLocalSearchParams<{
+    topicId: string;
+    subtopicId?: string;
+    subtopicName?: string;
+  }>();
   const router = useRouter();
   const decodedTopicId = decodeURIComponent(topicId || "");
+  const decodedSubtopicName = subtopicName ? decodeURIComponent(subtopicName) : "";
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -27,12 +32,22 @@ export default function TopicPracticeScreen() {
   const [correctCount, setCorrectCount] = useState(0);
   const [timer, setTimer] = useState(0);
   const [lang, setLang] = useState<"en" | "ml" | "both">("both");
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const questionsQuery = useQuery({
-    queryKey: queryKeys.questions({ topic: decodedTopicId, all: "1", limit: "500" }),
+    queryKey: queryKeys.questions({
+      topic: decodedTopicId,
+      ...(subtopicId ? { subtopicId } : {}),
+      all: "1",
+      limit: "500",
+    }),
     queryFn: async () => {
-      const res = await questionsApi.list({ topic: decodedTopicId, all: "1", limit: "500" });
+      const res = await questionsApi.list({
+        topic: decodedTopicId,
+        ...(subtopicId ? { subtopicId } : {}),
+        all: "1",
+        limit: "500",
+      });
       if (!res.success) throw new Error("Failed to load questions");
       return (res.data || []) as Question[];
     },
@@ -58,7 +73,7 @@ export default function TopicPracticeScreen() {
       const res = await sessionsApi.create({
         type: "topic",
         questionIds: questions.map((q) => q._id),
-        context: { topicId: decodedTopicId, all: "1" },
+        context: { topicId: decodedTopicId, subtopicId, all: "1" },
       });
       if (!res.success) throw new Error("Failed to create session");
       return res.data;
@@ -135,7 +150,9 @@ export default function TopicPracticeScreen() {
       <SafeScreen>
         <View style={styles.center}>
           <Text style={{ fontSize: 48, marginBottom: 12 }}>📭</Text>
-          <Text style={styles.emptyText}>No questions available for this topic</Text>
+          <Text style={styles.emptyText}>
+            No questions available for this {subtopicId ? "subtopic" : "topic"}
+          </Text>
           <Button title="Back" onPress={() => router.back()} style={{ marginTop: 16 }} />
         </View>
       </SafeScreen>
@@ -169,6 +186,12 @@ export default function TopicPracticeScreen() {
           </Pressable>
           <Text style={styles.topicLabel}>{decodedTopicId.replace(/_/g, " ")}</Text>
         </View>
+
+        {decodedSubtopicName && (
+          <Text style={styles.subtopicLabel} numberOfLines={2}>
+            {decodedSubtopicName}
+          </Text>
+        )}
 
         <View style={styles.subHeader}>
           <Text style={styles.questionNum}>Q {currentIndex + 1} / {questions.length}</Text>
@@ -251,6 +274,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   back: { fontSize: 14, color: "rgba(226,232,240,0.5)" },
   topicLabel: { fontSize: 12, color: "rgba(226,232,240,0.3)", textTransform: "uppercase" },
+  subtopicLabel: { fontSize: 15, fontWeight: "700", color: colors.white, marginBottom: 8 },
   subHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   questionNum: { fontSize: 12, color: "rgba(226,232,240,0.5)" },
   langToggle: { fontSize: 12, fontWeight: "600", color: "rgba(226,232,240,0.6)", backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },

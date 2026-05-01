@@ -5,6 +5,7 @@ import { API_BASE_URL } from "../utils/config";
 
 interface AuthContextValue extends AuthState {
   login: (idToken: string) => Promise<void>;
+  devLogin: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -51,13 +52,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ user, token, isLoading: false, isAuthenticated: true });
   }, []);
 
+  const devLogin = useCallback(async () => {
+    const res = await fetch(`${API_BASE_URL}/api/auth/dev`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(
+        typeof data.error === "string" ? data.error : data.error?.message || "Dev login failed"
+      );
+    }
+
+    const { token, user } = data.data as { token: string; user: User };
+    await saveSession(token, user);
+    setState({ user, token, isLoading: false, isAuthenticated: true });
+  }, []);
+
   const logout = useCallback(async () => {
     await clearSession();
     setState({ user: null, token: null, isLoading: false, isAuthenticated: false });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>
+    <AuthContext.Provider value={{ ...state, login, devLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );

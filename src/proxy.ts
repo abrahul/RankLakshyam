@@ -30,6 +30,13 @@ export async function proxy(request: NextRequest) {
   const sessionToken =
     request.cookies.get("authjs.session-token")?.value ||
     request.cookies.get("__Secure-authjs.session-token")?.value;
+  const bearerToken = request.headers.get("authorization")?.startsWith("Bearer ");
+
+  // Mobile clients authenticate API requests with a Bearer token that is
+  // validated inside the route handlers by auth().
+  if (pathname.startsWith("/api/") && bearerToken) {
+    return NextResponse.next();
+  }
 
   if (!sessionToken) {
     if (pathname.startsWith("/api/")) {

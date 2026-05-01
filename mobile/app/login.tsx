@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, Pressable, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/auth-provider";
 import { useGoogleAuth } from "../src/auth/google-auth";
@@ -8,32 +8,48 @@ import { colors } from "../src/constants/colors";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isAuthenticated } = useAuth();
-  const { request, response, promptAsync, idToken } = useGoogleAuth();
+  const { login, devLogin, isAuthenticated } = useAuth();
+  const { request, promptAsync, idToken } = useGoogleAuth();
   const [loading, setLoading] = useState(false);
+  const [devLoading, setDevLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getErrorMessage = (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback;
+
+  const handleLogin = useCallback(async (token: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await login(token);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Login failed. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  }, [login]);
 
   useEffect(() => {
     if (isAuthenticated) {
       router.replace("/(tabs)/home");
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     if (idToken) {
       handleLogin(idToken);
     }
-  }, [idToken]);
+  }, [idToken, handleLogin]);
 
-  const handleLogin = async (token: string) => {
-    setLoading(true);
+  const handleDevLogin = async () => {
+    setDevLoading(true);
     setError(null);
     try {
-      await login(token);
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
+      await devLogin();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Dev login failed. Please try again."));
     } finally {
-      setLoading(false);
+      setDevLoading(false);
     }
   };
 
@@ -75,6 +91,23 @@ export default function LoginScreen() {
               </>
             )}
           </Pressable>
+
+          {__DEV__ && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.devButton,
+                { opacity: loading || devLoading ? 0.5 : pressed ? 0.8 : 1 },
+              ]}
+              onPress={handleDevLogin}
+              disabled={loading || devLoading}
+            >
+              {devLoading ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.devText}>Dev Login</Text>
+              )}
+            </Pressable>
+          )}
 
           <Text style={styles.terms}>
             By continuing, you agree to our Terms of Service
@@ -152,6 +185,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: colors.surface[950],
+  },
+  devButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(59,130,246,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.45)",
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  devText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.white,
   },
   terms: {
     fontSize: 11,
