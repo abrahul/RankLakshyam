@@ -6,14 +6,12 @@ export interface IQuestion extends Document {
   text: { en: string; ml: string };
   options: Array<{ key: "A" | "B" | "C" | "D"; en: string; ml: string }>;
   answer: "A" | "B" | "C" | "D";
-  // Back-compat for existing UI/routes while migrating
   correctOption?: "A" | "B" | "C" | "D";
   explanation: { en: string; ml: string };
   optionWhy?: Record<"A" | "B" | "C" | "D", { en: string; ml: string }>;
   categoryId: mongoose.Types.ObjectId;
   topicId: string;
   subtopicId?: mongoose.Types.ObjectId;
-  // Back-compat alias (legacy name)
   subTopic?: mongoose.Types.ObjectId;
   examTags: mongoose.Types.ObjectId[];
   tags: string[];
@@ -22,7 +20,12 @@ export interface IQuestion extends Document {
   examCode: string;
   language: "en" | "ml" | "mixed";
   questionStyle: QuestionStyle;
-
+  // current affairs
+  type?: "question" | "current_affairs";
+  caType?: "daily" | "monthly";
+  caDate?: string;   // YYYY-MM-DD for daily
+  caMonth?: number;  // 1-12 for monthly
+  caYear?: number;
   pyq?: { exam: string; year: number; questionNumber: number };
   sourceType?: "pyq" | "pyq_variant" | "institute" | "internet";
   sourceRef?: string;
@@ -62,22 +65,10 @@ const QuestionSchema = new Schema<IQuestion>(
       ml: { type: String, default: "" },
     },
     optionWhy: {
-      A: {
-        en: { type: String, default: "" },
-        ml: { type: String, default: "" },
-      },
-      B: {
-        en: { type: String, default: "" },
-        ml: { type: String, default: "" },
-      },
-      C: {
-        en: { type: String, default: "" },
-        ml: { type: String, default: "" },
-      },
-      D: {
-        en: { type: String, default: "" },
-        ml: { type: String, default: "" },
-      },
+      A: { en: { type: String, default: "" }, ml: { type: String, default: "" } },
+      B: { en: { type: String, default: "" }, ml: { type: String, default: "" } },
+      C: { en: { type: String, default: "" }, ml: { type: String, default: "" } },
+      D: { en: { type: String, default: "" }, ml: { type: String, default: "" } },
     },
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true, index: true },
     topicId: { type: String, required: true },
@@ -93,7 +84,12 @@ const QuestionSchema = new Schema<IQuestion>(
       enum: [...QUESTION_STYLE_VALUES],
       default: DEFAULT_QUESTION_STYLE,
     },
-
+    // current affairs
+    type: { type: String, enum: ["question", "current_affairs"], default: "question" },
+    caType: { type: String, enum: ["daily", "monthly"] },
+    caDate: { type: String },
+    caMonth: { type: Number },
+    caYear: { type: Number },
     pyq: {
       exam: String,
       year: Number,
@@ -130,10 +126,14 @@ QuestionSchema.index({ sourceType: 1, parentQuestionId: 1 });
 QuestionSchema.index({ "pyq.exam": 1, "pyq.year": -1, "pyq.questionNumber": 1 });
 QuestionSchema.index({ tags: 1 });
 QuestionSchema.index({ isVerified: 1, createdAt: -1 });
-QuestionSchema.index({ "text.en": "text", "text.ml": "text" });
-
+QuestionSchema.index(
+  { "text.en": "text", "text.ml": "text" },
+  { default_language: "none", language_override: "textSearchLanguage" }
+);
 QuestionSchema.index({ examTags: 1 });
 QuestionSchema.index({ categoryId: 1, examTags: 1 });
+QuestionSchema.index({ type: 1, caType: 1, caDate: 1 });
+QuestionSchema.index({ type: 1, caType: 1, caMonth: 1, caYear: 1 });
 
 const Question: Model<IQuestion> =
   mongoose.models.Question ||

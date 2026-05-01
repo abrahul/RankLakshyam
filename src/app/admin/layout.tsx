@@ -15,6 +15,7 @@ const navItems = [
   { href: "/admin/users", icon: "👥", label: "Users" },
   { href: "/admin/categories", icon: "🗂️", label: "Categories" },
   { href: "/admin/reports", icon: "🚩", label: "Reports" },
+  { href: "/admin/ca", icon: "📰", label: "Current Affairs" },
 ];
 
 function AdminContent({ children }: { children: React.ReactNode }) {
