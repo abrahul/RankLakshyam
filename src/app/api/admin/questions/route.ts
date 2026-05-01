@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import mongoose from "mongoose";
 import { requireAdmin } from "@/lib/utils/admin-guard";
 import { connectDB } from "@/lib/db/connection";
@@ -226,6 +227,8 @@ export async function POST(request: Request) {
       isVerified: true, // Admin-created = auto-verified
       createdBy: guard.userId,
     });
+
+    revalidatePath("/api/admin/questions");
 
     return NextResponse.json({ success: true, data: question }, { status: 201 });
   } catch (error) {
